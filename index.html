@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Permit Certificate Finder</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body style="font-family: 'Inter', sans-serif; margin:0; background:#f5f7fa; -webkit-font-smoothing:antialiased;">
+<script
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA0_aC-2DLqKWYvamoEc21aqWfwkEtgF64&libraries=places&callback=initAutocomplete"
+  async
+  defer></script>
+  <!-- Header -->
+  <div class="header"
+    style="background:#20334e; color:white; padding:15px 25px; display:flex; align-items:center; justify-content:center; margin-top:10px; font-size:15px; font-weight:600; letter-spacing:0.5px;">
+    <img src="/Medias/buildingLogo.png" alt="Building Logo" style="width:30px; height:30px; object-fit:contain;">
+    <span style="margin-left: -2px;"><b>Florida Building Permit Certificate</b></span>
+  </div>
+
+  <div
+    style="width:100%; height:1px; background:#b79938; box-shadow:0 0 6px rgba(212,175,55,0.18); margin-top: 30px; margin-bottom: 10px;">
+  </div>
+
+  <div style="background:#20334e; width: 100%; height: 30px;">&nbsp;</div>
+  <div style="width:100%; background:#1d3a62; margin:0; padding:0; box-sizing:border-box;">
+    <div style="text-align:center; padding-top:50px; color:#ffffff;">
+      <h1 style="margin:0; font-size:22px; font-weight:700; line-height:1.1;">Get Your Official Building Permit
+        Certificate</h1>
+      <div style="padding:10px 0; font-size:10px; opacity:0.95;">Instantly generate and download verified permit
+        certificates for properties across Florida</div>
+    </div>
+
+    <!-- Centered white card (30% width) -->
+    <div style="
+  width:30%; 
+  min-width:320px; 
+  max-width:420px;
+  margin:18px auto 10px auto; 
+  background:#ffffff; 
+  border-radius:10px; 
+  box-shadow:0 6px 18px rgba(0,0,0,0.12); 
+  padding:20px; 
+  box-sizing:border-box;
+">
+      <div style="
+    text-align:center; 
+    color:#0b1220; 
+    font-weight:700; 
+    margin-bottom:18px; 
+    font-size:13px;">
+        Search for your Permit
+      </div>
+
+      <!-- IMPORTANT: onsubmit prevents real form submission; JS handles flow -->
+      <form id="searchForm" style="display:flex; flex-direction:column; gap:14px;" onsubmit="return false;">
+
+ <!-- Address + parsed subfields -->
+        <div style="width:100%;">
+          <label
+            style="font-size:11px;color:#0b1220;font-weight:500; display:block; margin-bottom:4px; text-align:center;">
+            Property Address <span style="color:#b91c1c;">*</span>
+          </label>
+          <!-- main autocomplete input — now required in UI -->
+          <input id="addressInput" name="address" type="text" placeholder="Start typing address..."
+            autocomplete="off" required
+            style="width:100%; padding:10px 12px; font-size:14px; border:1px solid #e5e7eb; border-radius:8px; box-sizing:border-box;" />
+          <div style="font-size:11px;color:#6b7280;margin-top:6px;text-align:center;">Select address from suggestions — this field is <strong>required</strong>.</div>
+        </div>
+
+        <!-- Subfields row: street number | street name | street type | zip code -->
+        <div id="address-subfields" 
+  style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+
+  <div style="flex:1; min-width:120px;">
+    <label style="font-size:10px;color:#0b1220;font-weight:500; display:block; 
+      margin-bottom:4px; text-align:center;">Street No.</label>
+    <input id="addr_number" type="text" readonly
+      style="width:100%; padding:8px 10px; font-size:13px; border:1px solid #e5e7eb; 
+      border-radius:6px; box-sizing:border-box;" />
+  </div>
+
+  <div style="flex:2; min-width:160px;">
+    <label style="font-size:10px;color:#0b1220;font-weight:500; display:block; 
+      margin-bottom:4px; text-align:center;">Street Name</label>
+    <input id="addr_name" type="text" readonly
+      style="width:100%; padding:8px 10px; font-size:13px; border:1px solid #e5e7eb; 
+      border-radius:6px; box-sizing:border-box;" />
+  </div>
+
+  <div style="flex:1; min-width:120px;">
+    <label style="font-size:10px;color:#0b1220;font-weight:500; display:block; 
+      margin-bottom:4px; text-align:center;">Street Type</label>
+    <input id="addr_type" type="text" readonly
+      style="width:100%; padding:8px 10px; font-size:13px; border:1px solid #e5e7eb; 
+      border-radius:6px; box-sizing:border-box;" />
+  </div>
+
+  <div style="flex:1; min-width:120px;">
+    <label style="font-size:10px;color:#0b1220;font-weight:500; display:block; 
+      margin-bottom:4px; text-align:center;">ZIP</label>
+    <input id="addr_zip" type="text" readonly
+      style="width:100%; padding:8px 10px; font-size:13px; border:1px solid #e5e7eb; 
+      border-radius:6px; box-sizing:border-box;" />
+  </div>
+
+</div>
+
+
+        <!-- Input Group -->
+        <div style="width:100%;">
+          <label
+            style="font-size:11px;color:#0b1220;font-weight:500; display:block; margin-bottom:4px; text-align:center;">City</label>
+          <input id="cityInput" name="city" type="text" placeholder="Optional — auto-fill from address if available" autocomplete="off"
+            style="width:100%; padding:10px 12px; font-size:14px; border:1px solid #e5e7eb; border-radius:8px; box-sizing:border-box;" />
+        </div>
+
+        <div style="width:100%;">
+          <label
+            style="font-size:11px;color:#0b1220;font-weight:500; display:block; margin-bottom:4px; text-align:center;">Permit
+            Number (optional)</label>
+          <input id="permitInput" name="permit" type="text" placeholder="e.g., BP-2025-001234" autocomplete="off"
+            style="width:100%; padding:10px 12px; font-size:14px; border:1px solid #e5e7eb; border-radius:8px; box-sizing:border-box;" />
+        </div>
+        <!-- Dates Row -->
+        <div style="display:flex; gap:12px; width:100%;">
+
+          <div style="flex:1;">
+            <label
+              style="font-size:11px;color:#0b1220;font-weight:500; display:block; margin-bottom:4px; text-align:center;">From
+              Date</label>
+            <input id="dateFrom" name="date_from" type="date"
+              style="width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; box-sizing:border-box;" />
+          </div>
+
+          <div style="flex:1;">
+            <label
+              style="font-size:11px;color:#0b1220;font-weight:500; display:block; margin-bottom:4px; text-align:center;">To
+              Date</label>
+            <input id="dateTo" name="date_to" type="date"
+              style="width:100%; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; box-sizing:border-box;" />
+          </div>
+
+        </div>
+
+        <!-- Button -->
+        <div style="text-align:center; width:100%;">
+          <button id="searchButton" type="submit" style="
+        display:flex; 
+        align-items:center; 
+        justify-content:center; 
+        width:100%; 
+        height:40px; 
+        gap:8px; 
+        background:#20334e; 
+        color:#fff; 
+        border:none; 
+        border-radius:8px; 
+        font-weight:700; 
+        font-size:14px;
+        cursor:pointer;
+      ">
+            <span>🔍</span> Search Permit
+          </button>
+        </div>
+
+      </form>
+    </div>
+
+
+    <div style="background:#1d3a62; width: 100%; height: 10px;">&nbsp;</div>
+  </div>
+
+  <h3 style="text-align:center; margin-top:20px;">Why Choose Our Certificate Services?</h3>
+  <div style="width:100%; height:1px; background:#b79938; box-shadow:0 0 6px rgba(212,175,55,0.18); margin-top:-15px;">
+  </div>
+
+  <section style="width:100%;display:flex;justify-content:center;margin:10px 0;">
+    <div role="region" aria-label="Why choose our certificate service"
+      style="width:40%;min-width:640px;display:flex;gap:22px;justify-content:space-between;align-items:flex-start;padding:18px 16px;box-sizing:border-box;">
+      <!-- CARD 1 -->
+      <div
+        style="background:#ffffff;border-radius:10px;padding:20px; width:100%;height:170px; box-shadow:2 8px 20px rgba(15,23,42,0.10); display:flex;flex-direction:column; align-items:center;text-align:center;gap:10px;">
+        <div
+          style=" width:74px; height:74px; border-radius:50%; position:relative; overflow:hidden; display:grid; place-items:center; /* top half: light black; bottom half: light yellow */ background: conic-gradient(from 180deg at 50% 50%, #4a4848 0deg 180deg, #7a7252 180deg 360deg); /* fallback for older browsers (approx): top dark, bottom light using linear */ background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0,#302c1b), color-stop(0.5,#585237), color-stop(0.5,#585237), color-stop(1,#585237)); box-shadow: 0 6px 18px rgba(0,0,0,0.18); ">
+          <div style=" position:absolute; left:8px; top:8px; width:18px; height:18px; border-radius:50%; background:rgba(255,255,255,0.06); filter:blur(0.6px); transform:translateY(-2px) rotate(12deg); pointer-events:none; ">
+          </div>
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width:36px;height:36px;z-index:2;fill:#D4A564;transform:translateY(6px);">
+            <path d="M13 2L3 14h7l-1 8 10-12h-7z" />
+          </svg>
+        </div>
+        <h4 style="font-size:11px;font-weight:700;color:#1B4D72;margin:6px 0 0 0;">Instant Generation</h4>
+        <p style="font-size:9px;color:#6b7280;line-height:1.45;margin:0;padding:0 6px;"> Get your official certificate
+          in seconds, not days. Our automated system processes requests immediately. </p>
+      </div> <!-- CARD 2 -->
+      <div
+        style="background:#ffffff;border-radius:10px;padding:20px; width:100%;height:170px; box-shadow:0 8px 20px rgba(15,23,42,0.10); display:flex;flex-direction:column; align-items:center;text-align:center;gap:10px;">
+        <div
+          style=" width:74px; height:74px; border-radius:50%; position:relative; overflow:hidden; display:grid; place-items:center; background: conic-gradient(from 180deg at 50% 50%, #4a4848 0deg 180deg, #7a7252 180deg 360deg); background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0,#302c1b), color-stop(0.5,#585237), color-stop(0.5,#585237), color-stop(1,#585237)); box-shadow: 0 6px 18px rgba(0,0,0,0.18); ">
+          <div style=" position:absolute; left:8px; top:8px; width:18px; height:18px; border-radius:50%; background:rgba(255,255,255,0.06); filter:blur(0.6px); transform:translateY(-2px) rotate(12deg); pointer-events:none; ">
+          </div>
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width:34px;height:34px;z-index:2;transform:translateY(6px);">
+            <path d="M17 9V7a5 5 0 10-10 0v2" fill="none" stroke="#C0C0C0" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+            <rect x="6" y="9" width="12" height="11" rx="2" ry="2" fill="#D4A564" />
+            <path d="M12 13.5a1.5 1.5 0 10.001 3.001A1.5 1.5 0 0012 13.5zm0 0v2" stroke="#3f3321" stroke-width="1" stroke-linecap="round" />
+          </svg>
+        </div>
+        <h4 style="font-size:11px;font-weight:700;color:#1B4D72;margin:6px 0 0 0;">100% Official</h4>
+        <p style="font-size:9px;color:#6b7280;line-height:1.45;margin:0;padding:0 6px;"> Certificates are generated from
+          official county records and include verification codes and property maps. </p>
+      </div> <!-- CARD 3 -->
+      <div
+        style="background:#ffffff;border-radius:10px;padding:20px; width:100%;height:170px; box-shadow:0 8px 20px rgba(15,23,42,0.10); display:flex;flex-direction:column; align-items:center;text-align:center;gap:10px;">
+        <div
+          style=" width:74px; height:74px; border-radius:50%; position:relative; overflow:hidden; display:grid; place-items:center; background: conic-gradient(from 180deg at 50% 50%, #4a4848 0deg 180deg, #7a7252 180deg 360deg); background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0,#302c1b), color-stop(0.5,#585237), color-stop(0.5,#585237), color-stop(1,#585237)); box-shadow: 0 6px 18px rgba(0,0,0,0.18); ">
+          <div style=" position:absolute; left:8px; top:8px; width:18px; height:18px; border-radius:50%; background:rgba(255,255,255,0.06); filter:blur(0.6px); transform:translateY(-2px) rotate(12deg); pointer-events:none; ">
+          </div>
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width:34px;height:34px;z-index:2;transform:translateY(4px);">
+            <rect x="7" y="3" width="10" height="18" rx="2.2" fill="#c9a7ff" />
+            <rect x="8" y="6" width="8" height="12.3" rx="1.2" fill="#e9d9ff" />
+            <rect x="8.6" y="6.8" width="1.8" height="1.8" rx="0.35" fill="#ff6b6b" />
+            <rect x="11" y="6.8" width="1.8" height="1.8" rx="0.35" fill="#4dabf7" />
+            <rect x="13.4" y="6.8" width="1.8" height="1.8" rx="0.35" fill="#ffd93b" />
+            <rect x="8.6" y="9.3" width="1.8" height="1.8" rx="0.35" fill="#6bcB77" />
+            <rect x="11" y="9.3" width="1.8" height="1.8" rx="0.35" fill="#845ef7" />
+            <rect x="13.4" y="9.3" width="1.8" height="1.8" rx="0.35" fill="#f06595" />
+            <rect x="8.6" y="11.8" width="1.8" height="1.8" rx="0.35" fill="#ffa94d" />
+            <rect x="11" y="11.8" width="1.8" height="1.8" rx="0.35" fill="#20c997" />
+            <rect x="13.4" y="11.8" width="1.8" height="1.8" rx="0.35" fill="#339af0" />
+            <circle cx="12" cy="5" r="1" fill="#fafafa" />
+          </svg>
+        </div>
+        <h4 style="font-size:11px;font-weight:700;color:#1B4D72;margin:6px 0 0 0;">Mobile Friendly</h4>
+        <p style="font-size:9px;color:#6b7280;line-height:1.45;margin:0;padding:0 6px;"> Access your certificates from
+          any device. Download PDFs that work everywhere. </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- App JS -->
+  <script src="/static/app.js?v=dev2"></script>
+</body>
+
+</html>
