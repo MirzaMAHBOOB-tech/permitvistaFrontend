@@ -1,4 +1,11 @@
 // /static/app.js
+// Define initAutocomplete callback globally BEFORE Google Maps script loads
+window.initAutocomplete = function() {
+  // This will be called by Google Maps API when it loads
+  // The actual initialization happens in DOMContentLoaded below
+  console.log("Google Maps API loaded, waiting for DOM...");
+};
+
 (() => {
   // Auto-detect API base URL based on current hostname
   const isProduction = window.location.hostname.includes('render.com') || window.location.hostname.includes('permitvistafrontend');
@@ -128,7 +135,10 @@
       return;
     }
     const addrInput = document.getElementById("addressInput");
-    if (!addrInput) { console.warn("addressInput not found"); return; }
+    if (!addrInput) { 
+      console.warn("addressInput not found"); 
+      return; 
+    }
     const options = { types: ["address"] };
     const autocomplete = new window.google.maps.places.Autocomplete(addrInput, options);
     autocomplete.addListener("place_changed", () => {
@@ -148,7 +158,6 @@
       console.log("Parsed address:", parsed);
     });
   }
-  window.initAutocomplete = initAutocompleteSafe;
 
   // ---------- Existing search / permit flow ----------
   function chooseIdFromRecord(rec) {
@@ -265,11 +274,27 @@
     const dateFrom = document.getElementById("dateFrom");
     const dateTo = document.getElementById("dateTo");
 
-    if (window.google && window.google.maps && window.google.maps.places) {
-      try { initAutocompleteSafe(); } catch(e) { console.warn("initAutocomplete failed:", e); }
-    } else {
-      console.info("Google Places not loaded yet; waiting for callback initAutocomplete");
+    // Initialize autocomplete when both DOM and Google Maps are ready
+    function tryInitAutocomplete() {
+      if (window.google && window.google.maps && window.google.maps.places) {
+        try { 
+          initAutocompleteSafe(); 
+        } catch(e) { 
+          console.warn("initAutocomplete failed:", e); 
+        }
+      } else {
+        // If Google Maps isn't ready yet, wait a bit and try again
+        setTimeout(tryInitAutocomplete, 100);
+      }
     }
+    
+    // Update the global callback to actually initialize
+    window.initAutocomplete = function() {
+      tryInitAutocomplete();
+    };
+    
+    // Also try immediately in case Google Maps already loaded
+    tryInitAutocomplete();
 
     // Removed permit-only auto lookup; address is required for search
 
