@@ -1,6 +1,10 @@
 // /static/app.js
 (() => {
-  const API_BASE = 'http://127.0.0.1:8000';
+  // Auto-detect API base URL based on current hostname
+  const isProduction = window.location.hostname.includes('render.com') || window.location.hostname.includes('permitvistafrontend');
+  const API_BASE = isProduction 
+    ? 'https://permitvistabackend.onrender.com' 
+    : 'http://127.0.0.1:8000';
 
   function setStatus(msg, isError = false) {
     let s = document.getElementById("statusLine");
