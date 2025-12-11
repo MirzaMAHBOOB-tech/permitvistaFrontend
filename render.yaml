@@ -3,5 +3,6 @@ services:
     name: permitvista-frontend
     env: static
     staticPublishPath: ./
-    buildCommand: echo "No build needed for static site"
+    buildCommand: echo "Static site - no build required"
+    startCommand: python3 -m http.server ${PORT:-10000}
 
