@@ -6,6 +6,28 @@
   <title>Permit Certificate Finder</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+  <style>
+    /* Responsive styles for cards section */
+    @media (max-width: 768px) {
+      .cards-container {
+        width: 90% !important;
+        min-width: unset !important;
+        flex-direction: column !important;
+        gap: 16px !important;
+        padding: 12px !important;
+      }
+      .cards-container > div {
+        width: 100% !important;
+        margin-bottom: 0 !important;
+      }
+    }
+    @media (max-width: 480px) {
+      .cards-container {
+        width: 95% !important;
+        padding: 8px !important;
+      }
+    }
+  </style>
 </head>
 
 <body style="font-family: 'Inter', sans-serif; margin:0; background:#f5f7fa; -webkit-font-smoothing:antialiased;">
@@ -178,7 +200,7 @@
   </div>
 
   <section style="width:100%;display:flex;justify-content:center;margin:10px 0;">
-    <div role="region" aria-label="Why choose our certificate service"
+    <div role="region" aria-label="Why choose our certificate service" class="cards-container"
       style="width:40%;min-width:640px;display:flex;gap:22px;justify-content:space-between;align-items:flex-start;padding:18px 16px;box-sizing:border-box;">
       <!-- CARD 1 -->
       <div
