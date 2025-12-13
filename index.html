@@ -31,10 +31,22 @@
 </head>
 
 <body style="font-family: 'Inter', sans-serif; margin:0; background:#f5f7fa; -webkit-font-smoothing:antialiased;">
-<script
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA0_aC-2DLqKWYvamoEc21aqWfwkEtgF64&libraries=places&callback=initAutocomplete"
-  async
-  defer></script>
+  <!-- Load config first -->
+  <script src="/static/config.js"></script>
+  <!-- Google Maps API - API key loaded from config.js -->
+  <script id="google-maps-script" async defer></script>
+  <script>
+    // Load Google Maps API with key from config
+    (function() {
+      const apiKey = window.APP_CONFIG?.GOOGLE_MAPS_API_KEY || '';
+      if (!apiKey) {
+        console.error('Google Maps API Key is not configured!');
+        return;
+      }
+      const script = document.getElementById('google-maps-script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initAutocomplete`;
+    })();
+  </script>
   <!-- Header -->
   <div class="header"
     style="background:#20334e; color:white; padding:15px 25px; display:flex; align-items:center; justify-content:center; margin-top:10px; font-size:15px; font-weight:600; letter-spacing:0.5px;">

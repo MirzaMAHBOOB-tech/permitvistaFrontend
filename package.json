@@ -1,0 +1,12 @@
+{
+  "name": "permitvista-frontend",
+  "version": "1.0.0",
+  "description": "Permit Vista Frontend",
+  "scripts": {
+    "build": "node build-config.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
+
