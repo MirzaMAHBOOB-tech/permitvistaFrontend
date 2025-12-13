@@ -44,8 +44,17 @@ window.APP_CONFIG = {
 `;
 
 const configPath = path.join(__dirname, 'static', 'config.js');
+
+// Ensure the static directory exists
+const staticDir = path.join(__dirname, 'static');
+if (!fs.existsSync(staticDir)) {
+  fs.mkdirSync(staticDir, { recursive: true });
+}
+
 fs.writeFileSync(configPath, configContent, 'utf8');
 
 console.log('✓ Generated config.js successfully');
 console.log('✓ Google Maps API Key configured');
+console.log(`✓ Config file written to: ${configPath}`);
+console.log(`✓ File exists: ${fs.existsSync(configPath)}`);
 

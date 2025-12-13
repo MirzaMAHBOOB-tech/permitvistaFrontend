@@ -3,6 +3,11 @@ services:
     name: permitvista-frontend
     env: static
     staticPublishPath: ./
-    buildCommand: node build-config.js
+    buildCommand: |
+      echo "Starting build process..."
+      node build-config.js
+      echo "Verifying config.js was created..."
+      ls -la static/config.js || echo "WARNING: config.js not found!"
+      echo "Build completed"
     startCommand: python3 -m http.server ${PORT:-10000}
 

@@ -11,6 +11,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# Generated config
+# Generated config - will be generated during build on Render
 static/config.js
 
