@@ -146,14 +146,30 @@ window.initAutocomplete = function() {
       if (!place || !place.address_components) {
         setStatus("Address picked (partial). We will try best-effort parsing.");
       } else {
-        setStatus("Address selected.");
+        setStatus("Address selected. You can edit the sub-fields below if needed.");
       }
       const parsed = parsePlaceToSubfields(place);
       if (place && place.formatted_address) addrInput.value = place.formatted_address;
-      document.getElementById("addr_number").value = parsed.street_number || "";
-      document.getElementById("addr_name").value = parsed.street_name || "";
-      document.getElementById("addr_type").value = parsed.street_type || "";
-      document.getElementById("addr_zip").value = parsed.postal_code || "";
+      // Auto-fill sub-fields, but allow user to edit them
+      const addrNumberEl = document.getElementById("addr_number");
+      const addrNameEl = document.getElementById("addr_name");
+      const addrTypeEl = document.getElementById("addr_type");
+      const addrZipEl = document.getElementById("addr_zip");
+      
+      if (addrNumberEl && !addrNumberEl.value.trim()) {
+        addrNumberEl.value = parsed.street_number || "";
+      }
+      if (addrNameEl && !addrNameEl.value.trim()) {
+        addrNameEl.value = parsed.street_name || "";
+      }
+      if (addrTypeEl && !addrTypeEl.value.trim()) {
+        addrTypeEl.value = parsed.street_type || "";
+      }
+      if (addrZipEl && !addrZipEl.value.trim()) {
+        addrZipEl.value = parsed.postal_code || "";
+      }
+      
+      // Store parsed data for reference, but user can override by editing fields
       addrInput.dataset.parsed = JSON.stringify(parsed);
       console.log("Parsed address:", parsed);
     });
@@ -320,20 +336,53 @@ window.initAutocomplete = function() {
         params.append("max_results", "500");
         // increase scan limit to search more CSV blobs on the server
         params.append("scan_limit", "200");
-        // include structured address parts from Google selection if available
-        try {
-          const parsed = addressInput && addressInput.dataset && addressInput.dataset.parsed ? JSON.parse(addressInput.dataset.parsed) : null;
-          console.debug("[search] params (pre-url):", {
-            address, city, df, dt, parsed
-          });
-          if (parsed) {
-            if (parsed.street_number) params.append("street_number_q", parsed.street_number);
-            if (parsed.street_name) params.append("street_name_q", parsed.street_name);
-            if (parsed.street_type) params.append("street_type_q", parsed.street_type);
-            if (parsed.street_dir) params.append("street_dir_q", parsed.street_dir);
-            if (parsed.postal_code) params.append("zip_q", parsed.postal_code);
+        // include structured address parts - prefer manually entered values over Google parsed values
+        // This allows users to edit sub-fields even after Google autocomplete, or fill them manually
+        const addrNumberEl = document.getElementById("addr_number");
+        const addrNameEl = document.getElementById("addr_name");
+        const addrTypeEl = document.getElementById("addr_type");
+        const addrZipEl = document.getElementById("addr_zip");
+        
+        const manualStreetNumber = addrNumberEl ? addrNumberEl.value.trim() : "";
+        const manualStreetName = addrNameEl ? addrNameEl.value.trim() : "";
+        const manualStreetType = addrTypeEl ? addrTypeEl.value.trim() : "";
+        const manualZip = addrZipEl ? addrZipEl.value.trim() : "";
+        
+        // Use manually entered values if provided, otherwise fall back to Google parsed values
+        let streetNumber = manualStreetNumber;
+        let streetName = manualStreetName;
+        let streetType = manualStreetType;
+        let streetDir = "";
+        let zip = manualZip;
+        
+        // If manual values not provided, try to get from Google parsed data
+        if (!streetNumber || !streetName || !zip) {
+          try {
+            const parsed = addressInput && addressInput.dataset && addressInput.dataset.parsed ? JSON.parse(addressInput.dataset.parsed) : null;
+            if (parsed) {
+              if (!streetNumber && parsed.street_number) streetNumber = parsed.street_number;
+              if (!streetName && parsed.street_name) streetName = parsed.street_name;
+              if (!streetType && parsed.street_type) streetType = parsed.street_type;
+              if (parsed.street_dir) streetDir = parsed.street_dir;
+              if (!zip && parsed.postal_code) zip = parsed.postal_code;
+            }
+          } catch (e) { 
+            console.debug("Error parsing Google address data:", e);
           }
-        } catch (e) { /* ignore */ }
+        }
+        
+        console.debug("[search] params (pre-url):", {
+          address, city, df, dt,
+          manual: { streetNumber, streetName, streetType, zip },
+          streetDir
+        });
+        
+        // Add structured address parts to search params if available
+        if (streetNumber) params.append("street_number_q", streetNumber);
+        if (streetName) params.append("street_name_q", streetName);
+        if (streetType) params.append("street_type_q", streetType);
+        if (streetDir) params.append("street_dir_q", streetDir);
+        if (zip) params.append("zip_q", zip);
 
         const url = `${API_BASE}/search?${params.toString()}`;
         console.debug("[search] url:", url);

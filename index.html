@@ -91,27 +91,34 @@
       <!-- IMPORTANT: onsubmit prevents real form submission; JS handles flow -->
       <form id="searchForm" style="display:flex; flex-direction:column; gap:14px;" onsubmit="return false;">
 
- <!-- Address + parsed subfields -->
+        <!-- Address + parsed subfields -->
         <div style="width:100%;">
           <label
             style="font-size:11px;color:#0b1220;font-weight:500; display:block; margin-bottom:4px; text-align:center;">
             Property Address <span style="color:#b91c1c;">*</span>
           </label>
           <!-- main autocomplete input — now required in UI -->
-          <input id="addressInput" name="address" type="text" placeholder="Start typing address..."
+          <input id="addressInput" name="address" type="text" placeholder="Type address or select from suggestions..."
             autocomplete="off" required
             style="width:100%; padding:10px 12px; font-size:14px; border:1px solid #e5e7eb; border-radius:8px; box-sizing:border-box;" />
-          <div style="font-size:11px;color:#6b7280;margin-top:6px;text-align:center;">Select address from suggestions — this field is <strong>required</strong>.</div>
+          <div style="font-size:10px;color:#6b7280;margin-top:4px;text-align:center;">
+            You can <strong>type manually</strong> or <strong>select from Google suggestions</strong> (if available).
+          </div>
         </div>
 
         <!-- Subfields row: street number | street name | street type | zip code -->
         <div id="address-subfields" 
   style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
+          <div style="width:100%; margin-bottom:4px;">
+            <div style="font-size:10px;color:#6b7280;text-align:center;">
+              <strong>Optional:</strong> Fill these fields manually for more accurate matching, or they will auto-fill if you select from Google suggestions.
+            </div>
+          </div>
 
   <div style="flex:1; min-width:120px;">
     <label style="font-size:10px;color:#0b1220;font-weight:500; display:block; 
       margin-bottom:4px; text-align:center;">Street No.</label>
-    <input id="addr_number" type="text" readonly
+    <input id="addr_number" type="text" placeholder="e.g., 3112"
       style="width:100%; padding:8px 10px; font-size:13px; border:1px solid #e5e7eb; 
       border-radius:6px; box-sizing:border-box;" />
   </div>
@@ -119,7 +126,7 @@
   <div style="flex:2; min-width:160px;">
     <label style="font-size:10px;color:#0b1220;font-weight:500; display:block; 
       margin-bottom:4px; text-align:center;">Street Name</label>
-    <input id="addr_name" type="text" readonly
+    <input id="addr_name" type="text" placeholder="e.g., Braddock"
       style="width:100%; padding:8px 10px; font-size:13px; border:1px solid #e5e7eb; 
       border-radius:6px; box-sizing:border-box;" />
   </div>
@@ -127,7 +134,7 @@
   <div style="flex:1; min-width:120px;">
     <label style="font-size:10px;color:#0b1220;font-weight:500; display:block; 
       margin-bottom:4px; text-align:center;">Street Type</label>
-    <input id="addr_type" type="text" readonly
+    <input id="addr_type" type="text" placeholder="e.g., St, Ave"
       style="width:100%; padding:8px 10px; font-size:13px; border:1px solid #e5e7eb; 
       border-radius:6px; box-sizing:border-box;" />
   </div>
@@ -135,7 +142,7 @@
   <div style="flex:1; min-width:120px;">
     <label style="font-size:10px;color:#0b1220;font-weight:500; display:block; 
       margin-bottom:4px; text-align:center;">ZIP</label>
-    <input id="addr_zip" type="text" readonly
+    <input id="addr_zip" type="text" placeholder="e.g., 33607"
       style="width:100%; padding:8px 10px; font-size:13px; border:1px solid #e5e7eb; 
       border-radius:6px; box-sizing:border-box;" />
   </div>
