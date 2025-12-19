@@ -189,6 +189,34 @@ window.initAutocomplete = function() {
     try { return new URL(maybeUrl, API_BASE).href; } catch (e) { return API_BASE + (maybeUrl.startsWith("/") ? maybeUrl : `/${maybeUrl}`); }
   }
 
+  // Function to clear all form fields after search
+  function clearFormFields() {
+    const addressInput = document.getElementById("addressInput");
+    const cityInput = document.getElementById("cityInput");
+    const permitInput = document.getElementById("permitInput");
+    const dateFrom = document.getElementById("dateFrom");
+    const dateTo = document.getElementById("dateTo");
+    const addrNumber = document.getElementById("addr_number");
+    const addrName = document.getElementById("addr_name");
+    const addrType = document.getElementById("addr_type");
+    const addrZip = document.getElementById("addr_zip");
+    
+    if (addressInput) {
+      addressInput.value = "";
+      if (addressInput.dataset) addressInput.dataset.parsed = ""; // Clear Google parsed data
+    }
+    if (cityInput) cityInput.value = "";
+    if (permitInput) permitInput.value = "";
+    if (dateFrom) dateFrom.value = "";
+    if (dateTo) dateTo.value = "";
+    if (addrNumber) addrNumber.value = "";
+    if (addrName) addrName.value = "";
+    if (addrType) addrType.value = "";
+    if (addrZip) addrZip.value = "";
+    
+    console.debug("[form] All fields cleared after search");
+  }
+
   async function fetchAndRenderSearch(url) {
     const resultsDiv = document.getElementById("results");
     const searchButton = document.getElementById("searchButton");
@@ -218,6 +246,8 @@ window.initAutocomplete = function() {
           openPdfUrl(viewLink);
         }
       } catch (e) { /* ignore */ }
+      // Clear form fields after successful search
+      clearFormFields();
     } catch (err) {
       const em = (err && err.message) ? err.message : String(err);
       if (em.includes("Request timeout")) {
@@ -227,6 +257,8 @@ window.initAutocomplete = function() {
         setStatus(`Network error: ${em}`, true);
         if (resultsDiv) resultsDiv.innerHTML = `<p style="color:#dc2626">Network error: ${em}</p>`;
       }
+      // Clear form fields even on error (after search was sent)
+      clearFormFields();
     } finally {
       console.debug("[search] total elapsed ms:", Math.round(performance.now() - t0));
       if (searchButton) searchButton.disabled = false;
@@ -419,11 +451,15 @@ window.initAutocomplete = function() {
             setStatus("No matching record found.", true);
             try { if (loadingWin) loadingWin.close(); } catch(e) {}
           }
+          // Clear form fields after search completes (success or no match)
+          clearFormFields();
         } catch (err) {
           const em = (err && err.message) ? err.message : String(err);
           if (em.includes("Request timeout")) setStatus("Search timed out — server took too long to respond.", true);
           else setStatus(`Network error: ${em}`, true);
           try { if (loadingWin) loadingWin.close(); } catch(e) {}
+          // Clear form fields even on error (after search was sent)
+          clearFormFields();
         }
       });
     }
