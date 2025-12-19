@@ -189,8 +189,22 @@ window.initAutocomplete = function() {
     try { return new URL(maybeUrl, API_BASE).href; } catch (e) { return API_BASE + (maybeUrl.startsWith("/") ? maybeUrl : `/${maybeUrl}`); }
   }
 
-  // Function to clear all form fields after search
+  // Function to clear all form fields
   function clearFormFields() {
+    console.log("[form] Starting to clear all fields...");
+    
+    // First, try form.reset() which is the most reliable way
+    const searchForm = document.getElementById("searchForm");
+    if (searchForm) {
+      try {
+        searchForm.reset();
+        console.log("[form] Form reset() called");
+      } catch (e) {
+        console.warn("[form] Form reset() failed:", e);
+      }
+    }
+    
+    // Then manually clear each field to be absolutely sure
     const addressInput = document.getElementById("addressInput");
     const cityInput = document.getElementById("cityInput");
     const permitInput = document.getElementById("permitInput");
@@ -201,20 +215,59 @@ window.initAutocomplete = function() {
     const addrType = document.getElementById("addr_type");
     const addrZip = document.getElementById("addr_zip");
     
+    // Clear address input
     if (addressInput) {
       addressInput.value = "";
-      if (addressInput.dataset) addressInput.dataset.parsed = ""; // Clear Google parsed data
+      if (addressInput.dataset) {
+        addressInput.dataset.parsed = "";
+        delete addressInput.dataset.parsed;
+      }
+      // Trigger input event to ensure UI updates
+      addressInput.dispatchEvent(new Event('input', { bubbles: true }));
+      console.log("[form] Address cleared, value is now:", addressInput.value);
     }
-    if (cityInput) cityInput.value = "";
-    if (permitInput) permitInput.value = "";
-    if (dateFrom) dateFrom.value = "";
-    if (dateTo) dateTo.value = "";
-    if (addrNumber) addrNumber.value = "";
-    if (addrName) addrName.value = "";
-    if (addrType) addrType.value = "";
-    if (addrZip) addrZip.value = "";
     
-    console.debug("[form] All fields cleared");
+    // Clear city
+    if (cityInput) {
+      cityInput.value = "";
+      cityInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    
+    // Clear permit
+    if (permitInput) {
+      permitInput.value = "";
+      permitInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    
+    // Clear dates
+    if (dateFrom) {
+      dateFrom.value = "";
+      dateFrom.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (dateTo) {
+      dateTo.value = "";
+      dateTo.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    
+    // Clear address sub-fields
+    if (addrNumber) {
+      addrNumber.value = "";
+      addrNumber.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (addrName) {
+      addrName.value = "";
+      addrName.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (addrType) {
+      addrType.value = "";
+      addrType.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    if (addrZip) {
+      addrZip.value = "";
+      addrZip.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    
+    console.log("[form] All fields cleared successfully");
   }
 
   async function fetchAndRenderSearch(url) {
@@ -417,7 +470,13 @@ window.initAutocomplete = function() {
         const url = `${API_BASE}/search?${params.toString()}`;
         console.debug("[search] url:", url);
         
-        // Clear form fields immediately after sending request (before response)
+        // Clear form fields immediately after building URL (before sending request)
+        // Use setTimeout to ensure clearing happens after any pending events
+        setTimeout(() => {
+          clearFormFields();
+        }, 0);
+        
+        // Also clear immediately (double-clear to be sure)
         clearFormFields();
         
         // Open loading page
