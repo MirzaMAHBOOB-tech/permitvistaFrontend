@@ -214,7 +214,7 @@ window.initAutocomplete = function() {
     if (addrType) addrType.value = "";
     if (addrZip) addrZip.value = "";
     
-    console.debug("[form] All fields cleared after search");
+    console.debug("[form] All fields cleared");
   }
 
   async function fetchAndRenderSearch(url) {
@@ -246,8 +246,7 @@ window.initAutocomplete = function() {
           openPdfUrl(viewLink);
         }
       } catch (e) { /* ignore */ }
-      // Clear form fields after successful search
-      clearFormFields();
+      // Fields already cleared before request was sent
     } catch (err) {
       const em = (err && err.message) ? err.message : String(err);
       if (em.includes("Request timeout")) {
@@ -257,8 +256,7 @@ window.initAutocomplete = function() {
         setStatus(`Network error: ${em}`, true);
         if (resultsDiv) resultsDiv.innerHTML = `<p style="color:#dc2626">Network error: ${em}</p>`;
       }
-      // Clear form fields even on error (after search was sent)
-      clearFormFields();
+      // Fields already cleared before request was sent
     } finally {
       console.debug("[search] total elapsed ms:", Math.round(performance.now() - t0));
       if (searchButton) searchButton.disabled = false;
@@ -418,6 +416,10 @@ window.initAutocomplete = function() {
 
         const url = `${API_BASE}/search?${params.toString()}`;
         console.debug("[search] url:", url);
+        
+        // Clear form fields immediately after sending request (before response)
+        clearFormFields();
+        
         // Open loading page
         let loadingWin = null;
         try { loadingWin = window.open(makeAbsoluteUrl("/static/loading.htm"), "_blank"); } catch(e) {}
@@ -451,15 +453,13 @@ window.initAutocomplete = function() {
             setStatus("No matching record found.", true);
             try { if (loadingWin) loadingWin.close(); } catch(e) {}
           }
-          // Clear form fields after search completes (success or no match)
-          clearFormFields();
+          // Fields already cleared before request was sent
         } catch (err) {
           const em = (err && err.message) ? err.message : String(err);
           if (em.includes("Request timeout")) setStatus("Search timed out — server took too long to respond.", true);
           else setStatus(`Network error: ${em}`, true);
           try { if (loadingWin) loadingWin.close(); } catch(e) {}
-          // Clear form fields even on error (after search was sent)
-          clearFormFields();
+          // Fields already cleared before request was sent
         }
       });
     }
