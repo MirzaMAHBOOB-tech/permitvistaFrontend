@@ -44,7 +44,7 @@
         return;
       }
       const script = document.getElementById('google-maps-script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initAutocomplete`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initAutocomplete&loading=async`;
     })();
   </script>
   <!-- Header -->
