@@ -375,13 +375,13 @@ window.initAutocomplete = function() {
 
     // Initialize autocomplete when both DOM and Google Maps are ready
     function tryInitAutocomplete() {
-      if (window.google && window.google.maps && window.google.maps.places) {
+    if (window.google && window.google.maps && window.google.maps.places) {
         try { 
           initAutocompleteSafe(); 
         } catch(e) { 
           console.warn("initAutocomplete failed:", e); 
         }
-      } else {
+    } else {
         // If Google Maps isn't ready yet, wait a bit and try again
         setTimeout(tryInitAutocomplete, 100);
       }
@@ -440,8 +440,8 @@ window.initAutocomplete = function() {
         
         // If manual values not provided, try to get from Google parsed data
         if (!streetNumber || !streetName || !zip) {
-          try {
-            const parsed = addressInput && addressInput.dataset && addressInput.dataset.parsed ? JSON.parse(addressInput.dataset.parsed) : null;
+        try {
+          const parsed = addressInput && addressInput.dataset && addressInput.dataset.parsed ? JSON.parse(addressInput.dataset.parsed) : null;
             if (parsed) {
               if (!streetNumber && parsed.street_number) streetNumber = parsed.street_number;
               if (!streetName && parsed.street_name) streetName = parsed.street_name;
@@ -454,7 +454,7 @@ window.initAutocomplete = function() {
           }
         }
         
-        console.debug("[search] params (pre-url):", {
+          console.debug("[search] params (pre-url):", {
           address, city, df, dt,
           manual: { streetNumber, streetName, streetType, zip },
           streetDir
