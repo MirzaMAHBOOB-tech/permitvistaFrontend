@@ -483,8 +483,9 @@ window.initAutocomplete = function() {
         let loadingWin = null;
         try { loadingWin = window.open(makeAbsoluteUrl("/static/loading.htm"), "_blank"); } catch(e) {}
         // Fire the search; backend will early-return with PDF if a match is found
+        // Increased timeout to 10 minutes (600000ms) to accommodate long backend searches
         try {
-          const r = await fetchJsonOrBinary(url, {}, 280000);
+          const r = await fetchJsonOrBinary(url, {}, 600000);
           if (!r.ok) { setStatus(`Server returned ${r.status}`, true); return; }
           const j = r.json || {};
           if (j.pdf_error) {
@@ -515,7 +516,7 @@ window.initAutocomplete = function() {
           // Fields already cleared before request was sent
         } catch (err) {
           const em = (err && err.message) ? err.message : String(err);
-          if (em.includes("Request timeout")) setStatus("Search timed out — server took too long to respond.", true);
+          if (em.includes("Request timeout")) setStatus("Search timed out — server took too long to respond. The index is being built in the background. Please try again in a few minutes or add a date range for faster results.", true);
           else setStatus(`Network error: ${em}`, true);
           try { if (loadingWin) loadingWin.close(); } catch(e) {}
           // Fields already cleared before request was sent
