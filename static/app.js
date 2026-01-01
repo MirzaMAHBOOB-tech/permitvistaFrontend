@@ -483,12 +483,8 @@ window.initAutocomplete = function() {
         let loadingWin = null;
         try { loadingWin = window.open(makeAbsoluteUrl("/static/loading.htm"), "_blank"); } catch(e) {}
         // Fire the search; backend will early-return with PDF if a match is found
-        // Use longer timeout (10 minutes) when scanning all files without date range
-        // 180000 = 3 min, 600000 = 10 min
-        const searchTimeout = 600000; // 10 minutes for scanning all files
         try {
-          setStatus("Searching through records... This may take a few minutes if no date range is provided.");
-          const r = await fetchJsonOrBinary(url, {}, searchTimeout);
+          const r = await fetchJsonOrBinary(url, {}, 280000);
           if (!r.ok) { setStatus(`Server returned ${r.status}`, true); return; }
           const j = r.json || {};
           if (j.pdf_error) {
@@ -519,11 +515,8 @@ window.initAutocomplete = function() {
           // Fields already cleared before request was sent
         } catch (err) {
           const em = (err && err.message) ? err.message : String(err);
-          if (em.includes("Request timeout")) {
-            setStatus("Search timed out — server took too long to respond. Try adding a date range to narrow the search.", true);
-          } else {
-            setStatus(`Network error: ${em}`, true);
-          }
+          if (em.includes("Request timeout")) setStatus("Search timed out — server took too long to respond.", true);
+          else setStatus(`Network error: ${em}`, true);
           try { if (loadingWin) loadingWin.close(); } catch(e) {}
           // Fields already cleared before request was sent
         }
