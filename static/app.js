@@ -329,86 +329,7 @@ window.initAutocomplete = function() {
     
     const t0 = performance.now();
     
-    // Use streaming search endpoint for incremental results
-    try {
-      // Replace /search with /search-stream for incremental results
-      const streamUrl = url.replace("/search?", "/search-stream?");
-      console.log("[fetchAndRenderSearch] Using streaming endpoint:", streamUrl);
-      
-      const eventSource = new EventSource(streamUrl);
-      let streamActive = true;
-      
-      eventSource.onmessage = function(event) {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'record') {
-            // Add record to matched records immediately
-            matchedRecords.push(data.data);
-            updateResultsDisplay();
-            console.log("[fetchAndRenderSearch] Received record", data.count);
-          } else if (data.type === 'complete') {
-            eventSource.close();
-            streamActive = false;
-            searchInProgress = false;
-            
-            // Update final status
-            const statusElement = document.getElementById("resultsStatus");
-            if (statusElement) {
-              if (matchedRecords.length === 0) {
-                statusElement.textContent = "No records found";
-              } else {
-                statusElement.textContent = `Found ${data.total} record(s)`;
-              }
-            }
-            
-            setStatus(`Search complete: ${data.total} record(s) found`);
-            if (searchButton) searchButton.disabled = false;
-            if (resetButton) resetButton.style.display = "inline-block";
-            console.log("[fetchAndRenderSearch] Stream complete, total:", data.total);
-          } else if (data.type === 'error') {
-            eventSource.close();
-            streamActive = false;
-            searchInProgress = false;
-            setStatus(`Error: ${data.message}`, true);
-            const statusElement = document.getElementById("resultsStatus");
-            if (statusElement) {
-              statusElement.textContent = `Error: ${data.message}`;
-            }
-            if (searchButton) searchButton.disabled = false;
-          }
-        } catch (e) {
-          console.error("Error parsing SSE data:", e);
-        }
-      };
-      
-      eventSource.onerror = function(error) {
-        if (streamActive) {
-          console.warn("[fetchAndRenderSearch] SSE error, falling back to regular search:", error);
-          eventSource.close();
-          streamActive = false;
-          // Fallback to regular search
-          fallbackToRegularSearch(url);
-        }
-      };
-      
-      // Set timeout to fallback if SSE doesn't work
-      setTimeout(() => {
-        if (streamActive && matchedRecords.length === 0) {
-          console.warn("[fetchAndRenderSearch] SSE timeout, falling back to regular search");
-          eventSource.close();
-          streamActive = false;
-          fallbackToRegularSearch(url);
-        }
-      }, 5000);
-      
-      return; // Exit early if SSE is working
-    } catch (sseError) {
-      console.warn("[fetchAndRenderSearch] EventSource not supported, using regular search:", sseError);
-      // Fall through to regular search
-    }
-    
-    // Fallback to regular search if SSE fails
+    // Fallback function for regular search
     async function fallbackToRegularSearch(searchUrl) {
       try {
         const response = await fetch(searchUrl, {
@@ -502,83 +423,86 @@ window.initAutocomplete = function() {
       }
     }
     
-    // Call fallback if we reach here
-    fallbackToRegularSearch(url);
+    // Use streaming search endpoint for incremental results
+    try {
+      // Replace /search with /search-stream for incremental results
+      const streamUrl = url.replace("/search?", "/search-stream?");
+      console.log("[fetchAndRenderSearch] Using streaming endpoint:", streamUrl);
       
-    } catch (err) {
-      searchInProgress = false;
-      const em = (err && err.message) ? err.message : String(err);
-      setStatus(`Search error: ${em}`, true);
-      if (resultsDiv) {
-        resultsDiv.innerHTML = `<p style="color:#dc2626">Search error: ${em}</p>`;
-      }
-      if (searchButton) searchButton.disabled = false;
+      const eventSource = new EventSource(streamUrl);
+      let streamActive = true;
+      
+      eventSource.onmessage = function(event) {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'record') {
+            // Add record to matched records immediately
+            matchedRecords.push(data.data);
+            updateResultsDisplay();
+            console.log("[fetchAndRenderSearch] Received record", data.count);
+          } else if (data.type === 'complete') {
+            eventSource.close();
+            streamActive = false;
+            searchInProgress = false;
+            
+            // Update final status
+            const statusElement = document.getElementById("resultsStatus");
+            if (statusElement) {
+              if (matchedRecords.length === 0) {
+                statusElement.textContent = "No records found";
+              } else {
+                statusElement.textContent = `Found ${data.total} record(s)`;
+              }
+            }
+            
+            setStatus(`Search complete: ${data.total} record(s) found`);
+            if (searchButton) searchButton.disabled = false;
+            if (resetButton) resetButton.style.display = "inline-block";
+            console.log("[fetchAndRenderSearch] Stream complete, total:", data.total);
+          } else if (data.type === 'error') {
+            eventSource.close();
+            streamActive = false;
+            searchInProgress = false;
+            setStatus(`Error: ${data.message}`, true);
+            const statusElement = document.getElementById("resultsStatus");
+            if (statusElement) {
+              statusElement.textContent = `Error: ${data.message}`;
+            }
+            if (searchButton) searchButton.disabled = false;
+          }
+        } catch (e) {
+          console.error("Error parsing SSE data:", e);
+        }
+      };
+      
+      eventSource.onerror = function(error) {
+        if (streamActive) {
+          console.warn("[fetchAndRenderSearch] SSE error, falling back to regular search:", error);
+          eventSource.close();
+          streamActive = false;
+          // Fallback to regular search
+          fallbackToRegularSearch(url);
+        }
+      };
+      
+      // Set timeout to fallback if SSE doesn't work
+      setTimeout(() => {
+        if (streamActive && matchedRecords.length === 0) {
+          console.warn("[fetchAndRenderSearch] SSE timeout, falling back to regular search");
+          eventSource.close();
+          streamActive = false;
+          fallbackToRegularSearch(url);
+        }
+      }, 5000);
+      
+      return; // Exit early if SSE is working
+    } catch (sseError) {
+      console.warn("[fetchAndRenderSearch] EventSource not supported, using regular search:", sseError);
+      // Fall through to regular search
+      await fallbackToRegularSearch(url);
     } finally {
       console.debug("[search] total elapsed ms:", Math.round(performance.now() - t0));
-    }
-  }
-
-  async function fallbackToRegularSearch(url) {
-    const resultsDiv = document.getElementById("results");
-    const searchButton = document.getElementById("searchButton");
-    const resetButton = document.getElementById("resetButton");
-    
-    try {
-      setStatus("Searching...");
-      
-      // Use regular search endpoint (no streaming)
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.error) {
-        setStatus(`Error: ${data.error}`, true);
-        if (resultsDiv) {
-          resultsDiv.innerHTML = `<p style="color:#dc2626">Error: ${data.error}</p>`;
-        }
-        if (searchButton) searchButton.disabled = false;
-        return;
-      }
-      
-      const results = data.results || [];
-      
-      // Convert results to matchedRecords format
-      matchedRecords = results.map(rec => ({
-        record_id: rec.record_id || pick_id_from_record(rec),
-        permit_number: rec.permit_number || rec.PermitNumber || rec.PermitNum || rec.record_id,
-        address: rec.address || rec.SearchAddress || rec.OriginalAddress1 || rec.AddressDescription || "Address not available",
-        city: rec.city || rec.OriginalCity || rec.City || "",
-        zip: rec.zip || rec.OriginalZip || rec.ZipCode || "",
-        work_description: rec.work_description || rec.WorkDescription || rec.ProjectDescription || rec.Description || "",
-        status: rec.status || rec.StatusCurrentMapped || rec.CurrentStatus || "",
-        applied_date: rec.applied_date || rec.AppliedDate || rec.ApplicationDate || ""
-      }));
-      
-      // Update display
-      updateResultsDisplay();
-      
-      searchInProgress = false;
-      setStatus(`Search complete: ${matchedRecords.length} record(s) found`);
-      if (searchButton) searchButton.disabled = false;
-      if (resetButton) resetButton.style.display = "inline-block";
-      
-    } catch (err) {
-      searchInProgress = false;
-      const em = (err && err.message) ? err.message : String(err);
-      setStatus(`Search error: ${em}`, true);
-      if (resultsDiv) {
-        resultsDiv.innerHTML = `<p style="color:#dc2626">Search error: ${em}</p>`;
-      }
-      if (searchButton) searchButton.disabled = false;
     }
   }
 
