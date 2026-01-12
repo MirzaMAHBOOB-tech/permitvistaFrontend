@@ -309,16 +309,19 @@ window.initAutocomplete = function() {
     console.log("[fetchAndRenderSearch] Showing results container");
     
     // Show and initialize results container
-    resultsDiv.style.display = "block";
-    resultsDiv.style.visibility = "visible";
-    resultsDiv.innerHTML = `
-      <div id="resultsContainer" style="margin-top: 20px; width: 100%;">
-        <div id="resultsHeader" style="text-align: center; margin-bottom: 15px;">
-          <h3 style="margin: 0; color: #20334e; font-size: 18px;">Found <span id="recordCount">0</span> record(s)</h3>
+    const resultsContent = document.getElementById("resultsContent");
+    if (resultsContent) {
+      resultsContent.innerHTML = `
+        <div id="resultsContainer" style="width: 100%;">
+          <div id="resultsHeader" style="text-align: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #20334e; font-size: 18px; font-weight: 700;">Found <span id="recordCount">0</span> record(s)</h3>
+          </div>
+          <div id="resultsCards" style="display: flex; flex-direction: column; gap: 12px; width: 100%;"></div>
         </div>
-        <div id="resultsCards" style="display: flex; flex-direction: column; gap: 12px; width: 100%;"></div>
-      </div>
-    `; 
+      `;
+    }
+    resultsDiv.style.display = "block";
+    resultsDiv.style.visibility = "visible"; 
     
     if (searchButton) searchButton.disabled = true;
     if (resetButton) resetButton.style.display = "none";
@@ -580,39 +583,67 @@ window.initAutocomplete = function() {
 
   window.selectRecordForPDF = async function selectRecordForPDF(index) {
     const record = matchedRecords[index];
-    if (!record) return;
+    if (!record) {
+      console.error("[selectRecordForPDF] Record not found at index", index);
+      return;
+    }
     
+    console.log("[selectRecordForPDF] Generating PDF for record:", record);
     setStatus("Generating PDF...");
     
     try {
+      const requestBody = {
+        record_id: record.record_id,
+        permit_number: record.permit_number
+      };
+      
+      console.log("[selectRecordForPDF] Request body:", requestBody);
+      console.log("[selectRecordForPDF] API URL:", `${API_BASE_URL}/generate-pdf`);
+      
       const response = await fetch(`${API_BASE_URL}/generate-pdf`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          record_id: record.record_id,
-          permit_number: record.permit_number
-        })
+        body: JSON.stringify(requestBody)
       });
       
+      console.log("[selectRecordForPDF] Response status:", response.status);
+      
       if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+        const errorText = await response.text();
+        console.error("[selectRecordForPDF] Error response:", errorText);
+        throw new Error(`Server returned ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
+      console.log("[selectRecordForPDF] Response data:", data);
       
       if (data.success && data.view_url) {
         setStatus("PDF generated successfully!");
-        // Open PDF in new tab
-        window.open(data.view_url, '_blank');
+        // Open PDF in new tab - ensure full URL
+        const fullUrl = data.view_url.startsWith('http') ? data.view_url : `${API_BASE_URL}${data.view_url}`;
+        console.log("[selectRecordForPDF] Opening PDF URL:", fullUrl);
+        window.open(fullUrl, '_blank');
       } else {
-        throw new Error("PDF generation failed");
+        throw new Error(data.error || data.detail || "PDF generation failed");
       }
     } catch (error) {
+      console.error("[selectRecordForPDF] Error:", error);
       setStatus(`Error generating PDF: ${error.message}`, true);
       alert(`Error generating PDF: ${error.message}`);
     }
+  }
+  
+  window.closeResults = function closeResults() {
+    console.log("[closeResults] Closing results");
+    const resultsDiv = document.getElementById("results");
+    if (resultsDiv) {
+      resultsDiv.style.display = "none";
+    }
+    matchedRecords = [];
+    searchInProgress = false;
+    setStatus("Ready.");
   }
 
   window.resetSearch = function resetSearch() {
@@ -621,12 +652,26 @@ window.initAutocomplete = function() {
     const resultsDiv = document.getElementById("results");
     if (resultsDiv) {
       resultsDiv.style.display = "none";
-      resultsDiv.innerHTML = "";
+      const resultsContent = document.getElementById("resultsContent");
+      if (resultsContent) {
+        resultsContent.innerHTML = "";
+      }
     }
     const resetButton = document.getElementById("resetButton");
     if (resetButton) resetButton.style.display = "none";
     setStatus("Ready.");
     clearFormFields();
+  }
+  
+  window.closeResults = function closeResults() {
+    console.log("[closeResults] Closing results");
+    const resultsDiv = document.getElementById("results");
+    if (resultsDiv) {
+      resultsDiv.style.display = "none";
+    }
+    matchedRecords = [];
+    searchInProgress = false;
+    setStatus("Ready.");
   }
 
   function renderResults(list) {
