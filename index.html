@@ -43,6 +43,13 @@
         console.error('Google Maps API Key is not configured!');
         return;
       }
+      // Ensure initAutocomplete exists before loading Google Maps
+      if (typeof window.initAutocomplete !== 'function') {
+        window.initAutocomplete = function() {
+          console.log("Google Maps API loaded - callback called");
+          // The actual initialization happens in DOMContentLoaded
+        };
+      }
       const script = document.getElementById('google-maps-script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initAutocomplete&loading=async`;
     })();

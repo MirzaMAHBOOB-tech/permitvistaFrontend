@@ -720,14 +720,20 @@ window.initAutocomplete = function() {
       searchForm.setAttribute("action", "javascript:void(0);");
       searchForm.setAttribute("method", "get");
       
-      // Add multiple layers of prevention
+      // Add form submit handler
       searchForm.addEventListener("submit", async (ev) => {
+        console.log("[form] Submit event triggered!");
         ev.preventDefault();
         ev.stopPropagation();
         ev.stopImmediatePropagation();
         
         // Prevent any default form behavior
-        if (ev.defaultPrevented) return;
+        if (ev.defaultPrevented) {
+          console.log("[form] Event already prevented, returning");
+          return;
+        }
+        
+        console.log("[form] Processing form submission...");
         
         const city = cityInput ? cityInput.value.trim() : "";
         const permit = permitInput ? permitInput.value.trim() : "";
@@ -815,6 +821,86 @@ window.initAutocomplete = function() {
       }, true); // Use capture phase to ensure we catch it first
       
       console.log("[DOMContentLoaded] Form submit handler attached successfully");
+      
+      // Also add direct button click handler as backup
+      if (searchButton) {
+        searchButton.addEventListener("click", async function(ev) {
+          console.log("[button] Search button clicked directly");
+          ev.preventDefault();
+          ev.stopPropagation();
+          
+          // Manually trigger form submission by calling the handler logic directly
+          const city = cityInput ? cityInput.value.trim() : "";
+          const permit = permitInput ? permitInput.value.trim() : "";
+          const address = addressInput ? addressInput.value.trim() : "";
+          const df = dateFrom ? dateFrom.value : "";
+          const dt = dateTo ? dateTo.value : "";
+
+          if (!address) {
+            setStatus("Property Address is required.", true);
+            return;
+          }
+
+          // Build search URL
+          const params = new URLSearchParams();
+          params.append("address", address);
+          if (city) params.append("city", city);
+          if (permit) params.append("permit", permit);
+          if (df) params.append("date_from", df);
+          if (dt) params.append("date_to", dt);
+          params.append("max_results", "500");
+          
+          const addrNumberEl = document.getElementById("addr_number");
+          const addrNameEl = document.getElementById("addr_name");
+          const addrTypeEl = document.getElementById("addr_type");
+          const addrZipEl = document.getElementById("addr_zip");
+          
+          const manualStreetNumber = addrNumberEl ? addrNumberEl.value.trim() : "";
+          const manualStreetName = addrNameEl ? addrNameEl.value.trim() : "";
+          const manualStreetType = addrTypeEl ? addrTypeEl.value.trim() : "";
+          const manualZip = addrZipEl ? addrZipEl.value.trim() : "";
+          
+          let streetNumber = manualStreetNumber;
+          let streetName = manualStreetName;
+          let streetType = manualStreetType;
+          let streetDir = "";
+          let zip = manualZip;
+          
+          if (!streetNumber || !streetName || !zip) {
+            try {
+              const parsed = addressInput && addressInput.dataset && addressInput.dataset.parsed ? JSON.parse(addressInput.dataset.parsed) : null;
+              if (parsed) {
+                if (!streetNumber && parsed.street_number) streetNumber = parsed.street_number;
+                if (!streetName && parsed.street_name) streetName = parsed.street_name;
+                if (!streetType && parsed.street_type) streetType = parsed.street_type;
+                if (parsed.street_dir) streetDir = parsed.street_dir;
+                if (!zip && parsed.postal_code) zip = parsed.postal_code;
+              }
+            } catch (e) {
+              console.debug("Error parsing Google address data:", e);
+            }
+          }
+          
+          if (streetNumber) params.append("street_number_q", streetNumber);
+          if (streetName) params.append("street_name_q", streetName);
+          if (streetType) params.append("street_type_q", streetType);
+          if (streetDir) params.append("street_dir_q", streetDir);
+          if (zip) params.append("zip_q", zip);
+
+          const url = `${API_BASE}/search?${params.toString()}`;
+          console.log("[button] Starting search with URL:", url);
+          
+          try {
+            await fetchAndRenderSearch(url);
+          } catch (error) {
+            console.error("[button] Error during search:", error);
+            setStatus(`Search error: ${error.message}`, true);
+            if (searchButton) searchButton.disabled = false;
+          }
+        });
+        console.log("[DOMContentLoaded] Button click handler attached");
+      }
+      
       // Button click will naturally trigger form submit, which is handled above
     } else {
       console.error("[DOMContentLoaded] searchForm not found - cannot attach handlers!");
