@@ -308,13 +308,14 @@ window.initAutocomplete = function() {
     setStatus("Searching...");
     console.log("[fetchAndRenderSearch] Showing results container");
     
-    // Show and initialize results container
+    // Show and initialize results container with "Searching..." message
     const resultsContent = document.getElementById("resultsContent");
     if (resultsContent) {
       resultsContent.innerHTML = `
         <div id="resultsContainer" style="width: 100%;">
           <div id="resultsHeader" style="text-align: center; margin-bottom: 15px;">
-            <h3 style="margin: 0; color: #20334e; font-size: 18px; font-weight: 700;">Found <span id="recordCount">0</span> record(s)</h3>
+            <h3 id="resultsStatus" style="margin: 0; color: #20334e; font-size: 18px; font-weight: 700;">Searching...</h3>
+            <div id="recordCount" style="display:none;"></div>
           </div>
           <div id="resultsCards" style="display: flex; flex-direction: column; gap: 12px; width: 100%;"></div>
         </div>
@@ -328,94 +329,181 @@ window.initAutocomplete = function() {
     
     const t0 = performance.now();
     
-    // Use regular search endpoint (more reliable than SSE)
-    // The backend now returns results without generating PDFs
+    // Use streaming search endpoint for incremental results
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        }
-      });
+      // Replace /search with /search-stream for incremental results
+      const streamUrl = url.replace("/search?", "/search-stream?");
+      console.log("[fetchAndRenderSearch] Using streaming endpoint:", streamUrl);
       
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
-      }
+      const eventSource = new EventSource(streamUrl);
+      let streamActive = true;
       
-      const data = await response.json();
-      
-      console.debug("[search] Response data:", data);
-      console.debug("[search] Results array:", data.results);
-      console.debug("[search] Results length:", data.results?.length);
-      
-      if (data.error) {
-        setStatus(`Error: ${data.error}`, true);
-        if (resultsDiv) {
-          resultsDiv.innerHTML = `<p style="color:#dc2626">Error: ${data.error}</p>`;
-        }
-        if (searchButton) searchButton.disabled = false;
-        searchInProgress = false;
-        return;
-      }
-      
-      const results = data.results || [];
-      
-      console.debug("[search] Parsed results count:", results.length);
-      
-      if (results.length === 0) {
-        setStatus("No records found.", true);
-        if (resultsDiv) {
-          resultsDiv.innerHTML = `<p style="color:#6b7280; text-align:center; padding:20px;">No matching records found. Please try a different search.</p>`;
-        }
-        if (searchButton) searchButton.disabled = false;
-        searchInProgress = false;
-        return;
-      }
-      
-      // Convert results to matchedRecords format
-      console.log("[fetchAndRenderSearch] Converting", results.length, "results to display format");
-      matchedRecords = results.map(rec => {
-        // Use chooseIdFromRecord function that exists in the codebase
-        const recId = rec.record_id || (() => {
-          const candidates = ["PermitNumber", "PermitNum", "_id", "ID", "OBJECTID", "FID", "ApplicationNumber"];
-          for (const candidate of candidates) {
-            if (rec[candidate]) {
-              return String(rec[candidate]);
+      eventSource.onmessage = function(event) {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'record') {
+            // Add record to matched records immediately
+            matchedRecords.push(data.data);
+            updateResultsDisplay();
+            console.log("[fetchAndRenderSearch] Received record", data.count);
+          } else if (data.type === 'complete') {
+            eventSource.close();
+            streamActive = false;
+            searchInProgress = false;
+            
+            // Update final status
+            const statusElement = document.getElementById("resultsStatus");
+            if (statusElement) {
+              if (matchedRecords.length === 0) {
+                statusElement.textContent = "No records found";
+              } else {
+                statusElement.textContent = `Found ${data.total} record(s)`;
+              }
             }
+            
+            setStatus(`Search complete: ${data.total} record(s) found`);
+            if (searchButton) searchButton.disabled = false;
+            if (resetButton) resetButton.style.display = "inline-block";
+            console.log("[fetchAndRenderSearch] Stream complete, total:", data.total);
+          } else if (data.type === 'error') {
+            eventSource.close();
+            streamActive = false;
+            searchInProgress = false;
+            setStatus(`Error: ${data.message}`, true);
+            const statusElement = document.getElementById("resultsStatus");
+            if (statusElement) {
+              statusElement.textContent = `Error: ${data.message}`;
+            }
+            if (searchButton) searchButton.disabled = false;
           }
-          return "unknown";
-        })();
+        } catch (e) {
+          console.error("Error parsing SSE data:", e);
+        }
+      };
+      
+      eventSource.onerror = function(error) {
+        if (streamActive) {
+          console.warn("[fetchAndRenderSearch] SSE error, falling back to regular search:", error);
+          eventSource.close();
+          streamActive = false;
+          // Fallback to regular search
+          fallbackToRegularSearch(url);
+        }
+      };
+      
+      // Set timeout to fallback if SSE doesn't work
+      setTimeout(() => {
+        if (streamActive && matchedRecords.length === 0) {
+          console.warn("[fetchAndRenderSearch] SSE timeout, falling back to regular search");
+          eventSource.close();
+          streamActive = false;
+          fallbackToRegularSearch(url);
+        }
+      }, 5000);
+      
+      return; // Exit early if SSE is working
+    } catch (sseError) {
+      console.warn("[fetchAndRenderSearch] EventSource not supported, using regular search:", sseError);
+      // Fall through to regular search
+    }
+    
+    // Fallback to regular search if SSE fails
+    async function fallbackToRegularSearch(searchUrl) {
+      try {
+        const response = await fetch(searchUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          }
+        });
         
-        return {
-          record_id: recId,
-          permit_number: rec.permit_number || rec.PermitNumber || rec.PermitNum || recId,
-          address: rec.address || rec.SearchAddress || rec.OriginalAddress1 || rec.AddressDescription || rec.Address || "Address not available",
-          city: rec.city || rec.OriginalCity || rec.City || "",
-          zip: rec.zip || rec.OriginalZip || rec.ZipCode || "",
-          work_description: rec.work_description || rec.WorkDescription || rec.ProjectDescription || rec.Description || "",
-          status: rec.status || rec.StatusCurrentMapped || rec.CurrentStatus || "",
-          applied_date: rec.applied_date || rec.AppliedDate || rec.ApplicationDate || ""
-        };
-      });
-      
-      console.log("[fetchAndRenderSearch] Converted to", matchedRecords.length, "matched records");
-      console.log("[fetchAndRenderSearch] Sample record:", matchedRecords[0]);
-      
-      // Update display with all results
-      updateResultsDisplay();
-      
-      // Ensure results div is visible
-      if (resultsDiv) {
-        resultsDiv.style.display = "block";
-        resultsDiv.style.visibility = "visible";
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          setStatus(`Error: ${data.error}`, true);
+          const statusElement = document.getElementById("resultsStatus");
+          if (statusElement) {
+            statusElement.textContent = `Error: ${data.error}`;
+          }
+          if (searchButton) searchButton.disabled = false;
+          searchInProgress = false;
+          return;
+        }
+        
+        const results = data.results || [];
+        
+        if (results.length === 0) {
+          setStatus("No records found.", true);
+          const statusElement = document.getElementById("resultsStatus");
+          if (statusElement) {
+            statusElement.textContent = "No records found";
+          }
+          if (searchButton) searchButton.disabled = false;
+          searchInProgress = false;
+          return;
+        }
+        
+        // Convert results to matchedRecords format
+        matchedRecords = results.map(rec => {
+          const recId = rec.record_id || (() => {
+            const candidates = ["PermitNumber", "PermitNum", "_id", "ID", "OBJECTID", "FID", "ApplicationNumber"];
+            for (const candidate of candidates) {
+              if (rec[candidate]) {
+                return String(rec[candidate]);
+              }
+            }
+            return "unknown";
+          })();
+          
+          return {
+            record_id: recId,
+            permit_number: rec.permit_number || rec.PermitNumber || rec.PermitNum || recId,
+            address: rec.address || rec.SearchAddress || rec.OriginalAddress1 || rec.AddressDescription || rec.Address || "Address not available",
+            city: rec.city || rec.OriginalCity || rec.City || "",
+            zip: rec.zip || rec.OriginalZip || rec.ZipCode || "",
+            work_description: rec.work_description || rec.WorkDescription || rec.ProjectDescription || rec.Description || "",
+            status: rec.status || rec.StatusCurrentMapped || rec.CurrentStatus || "",
+            applied_date: rec.applied_date || rec.AppliedDate || rec.ApplicationDate || ""
+          };
+        });
+        
+        // Update display with all results
+        updateResultsDisplay();
+        
+        // Update status message in results card
+        const statusElement = document.getElementById("resultsStatus");
+        if (statusElement) {
+          if (matchedRecords.length === 0) {
+            statusElement.textContent = "No records found";
+          } else {
+            statusElement.textContent = `Found ${matchedRecords.length} record(s)`;
+          }
+        }
+        
+        searchInProgress = false;
+        setStatus(`Search complete: ${matchedRecords.length} record(s) found`);
+        if (searchButton) searchButton.disabled = false;
+        if (resetButton) resetButton.style.display = "inline-block";
+        
+      } catch (err) {
+        searchInProgress = false;
+        const em = (err && err.message) ? err.message : String(err);
+        setStatus(`Search error: ${em}`, true);
+        const statusElement = document.getElementById("resultsStatus");
+        if (statusElement) {
+          statusElement.textContent = `Error: ${em}`;
+        }
+        if (searchButton) searchButton.disabled = false;
       }
-      
-      searchInProgress = false;
-      setStatus(`Search complete: ${matchedRecords.length} record(s) found`);
-      if (searchButton) searchButton.disabled = false;
-      if (resetButton) resetButton.style.display = "inline-block";
-      
-      console.log("[fetchAndRenderSearch] Search complete, results should be visible");
+    }
+    
+    // Call fallback if we reach here
+    fallbackToRegularSearch(url);
       
     } catch (err) {
       searchInProgress = false;
@@ -508,13 +596,23 @@ window.initAutocomplete = function() {
     console.log("[updateResultsDisplay] Updating display with", matchedRecords.length, "records");
     const cardsContainer = document.getElementById("resultsCards");
     const countElement = document.getElementById("recordCount");
+    const statusElement = document.getElementById("resultsStatus");
     
     if (!cardsContainer) {
       console.error("[updateResultsDisplay] resultsCards container not found!");
       return;
     }
     
-    // Update count
+    // Update status message
+    if (statusElement) {
+      if (matchedRecords.length === 0) {
+        statusElement.textContent = "Searching...";
+      } else {
+        statusElement.textContent = `Found ${matchedRecords.length} record(s)`;
+      }
+    }
+    
+    // Update count (hidden element for reference)
     if (countElement) {
       countElement.textContent = matchedRecords.length;
     }
