@@ -671,6 +671,11 @@ window.initAutocomplete = function() {
     // Removed permit-only auto lookup; address is required for search
 
     if (searchForm) {
+      // Remove any existing action or method that might cause navigation
+      searchForm.setAttribute("action", "javascript:void(0);");
+      searchForm.setAttribute("method", "get");
+      
+      // Add multiple layers of prevention
       searchForm.addEventListener("submit", async (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
@@ -749,10 +754,23 @@ window.initAutocomplete = function() {
 
         const url = `${API_BASE}/search?${params.toString()}`;
         console.debug("[search] url:", url);
+        console.debug("[search] Starting search - page should NOT navigate");
         
-        // Use new streaming search (don't clear form - user might want to search again)
+        // Use regular search (don't clear form - user might want to search again)
+        // This will display results on the same page without navigation
         await fetchAndRenderSearch(url);
-      });
+        
+        return false; // Prevent any form submission
+      }, true); // Use capture phase to ensure we catch it first
+      
+      // Also prevent form submission via button click
+      if (searchButton) {
+        searchButton.addEventListener("click", function(ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          // Don't trigger form submit - let the form submit handler do it
+        }, true);
+      }
     }
 
     // Setup reset button click handler

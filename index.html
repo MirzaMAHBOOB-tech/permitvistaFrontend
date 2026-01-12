@@ -89,7 +89,7 @@
       </div>
 
       <!-- IMPORTANT: onsubmit prevents real form submission; JS handles flow -->
-      <form id="searchForm" style="display:flex; flex-direction:column; gap:14px;" onsubmit="return false;">
+      <form id="searchForm" style="display:flex; flex-direction:column; gap:14px;" onsubmit="event.preventDefault(); return false;" action="javascript:void(0);" method="get">
 
  <!-- Address + parsed subfields -->
         <div style="width:100%;">
@@ -303,7 +303,7 @@
   <div id="results" style="display:none; width:100%; max-width:800px; margin:20px auto; padding:0 20px;"></div>
 
   <!-- App JS -->
-  <script src="/static/app.js?v=dev2"></script>
+  <script src="/static/app.js?v=dev3"></script>
 </body>
 
 </html>
