@@ -301,60 +301,168 @@ window.initAutocomplete = function() {
     
     const t0 = performance.now();
     
+    // Use regular search endpoint (more reliable than SSE)
+    // The backend now returns results without generating PDFs
     try {
-      // Use streaming endpoint
-      const streamUrl = url.replace("/search?", "/search-stream?");
-      const eventSource = new EventSource(streamUrl);
-      
-      eventSource.onmessage = function(event) {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'record') {
-            // Add record to matched records
-            matchedRecords.push(data.data);
-            updateResultsDisplay();
-            setStatus(`Found ${data.count} record(s)...`);
-          } else if (data.type === 'complete') {
-            eventSource.close();
-            searchInProgress = false;
-            setStatus(`Search complete: ${data.total} record(s) found`);
-            if (searchButton) searchButton.disabled = false;
-            if (resetButton) resetButton.style.display = "inline-block";
-          } else if (data.type === 'error') {
-            eventSource.close();
-            searchInProgress = false;
-            setStatus(`Error: ${data.message}`, true);
-            if (resultsDiv) {
-              resultsDiv.innerHTML = `<p style="color:#dc2626">Error: ${data.message}</p>`;
-            }
-            if (searchButton) searchButton.disabled = false;
-          }
-        } catch (e) {
-          console.error("Error parsing SSE data:", e);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
         }
-      };
+      });
       
-      eventSource.onerror = function(error) {
-        eventSource.close();
-        searchInProgress = false;
-        setStatus("Search connection error", true);
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      console.debug("[search] Response data:", data);
+      console.debug("[search] Results array:", data.results);
+      console.debug("[search] Results length:", data.results?.length);
+      
+      if (data.error) {
+        setStatus(`Error: ${data.error}`, true);
         if (resultsDiv) {
-          resultsDiv.innerHTML = `<p style="color:#dc2626">Search connection error. Please try again.</p>`;
+          resultsDiv.innerHTML = `<p style="color:#dc2626">Error: ${data.error}</p>`;
         }
         if (searchButton) searchButton.disabled = false;
-        console.error("SSE error:", error);
-      };
+        searchInProgress = false;
+        return;
+      }
+      
+      const results = data.results || [];
+      
+      console.debug("[search] Parsed results count:", results.length);
+      
+      if (results.length === 0) {
+        setStatus("No records found.", true);
+        if (resultsDiv) {
+          resultsDiv.innerHTML = `<p style="color:#6b7280; text-align:center; padding:20px;">No matching records found. Please try a different search.</p>`;
+        }
+        if (searchButton) searchButton.disabled = false;
+        searchInProgress = false;
+        return;
+      }
+      
+      // Convert results to matchedRecords format
+      matchedRecords = results.map(rec => {
+        // Use chooseIdFromRecord function that exists in the codebase
+        const recId = rec.record_id || (() => {
+          const candidates = ["PermitNumber", "PermitNum", "_id", "ID", "OBJECTID", "FID", "ApplicationNumber"];
+          for (const candidate of candidates) {
+            if (rec[candidate]) {
+              return String(rec[candidate]);
+            }
+          }
+          return "unknown";
+        })();
+        
+        return {
+          record_id: recId,
+          permit_number: rec.permit_number || rec.PermitNumber || rec.PermitNum || recId,
+          address: rec.address || rec.SearchAddress || rec.OriginalAddress1 || rec.AddressDescription || rec.Address || "Address not available",
+          city: rec.city || rec.OriginalCity || rec.City || "",
+          zip: rec.zip || rec.OriginalZip || rec.ZipCode || "",
+          work_description: rec.work_description || rec.WorkDescription || rec.ProjectDescription || rec.Description || "",
+          status: rec.status || rec.StatusCurrentMapped || rec.CurrentStatus || "",
+          applied_date: rec.applied_date || rec.AppliedDate || rec.ApplicationDate || ""
+        };
+      });
+      
+      // Update display with all results
+      updateResultsDisplay();
+      
+      searchInProgress = false;
+      setStatus(`Search complete: ${matchedRecords.length} record(s) found`);
+      if (searchButton) searchButton.disabled = false;
+      if (resetButton) resetButton.style.display = "inline-block";
       
     } catch (err) {
       searchInProgress = false;
       const em = (err && err.message) ? err.message : String(err);
-      setStatus(`Network error: ${em}`, true);
-      if (resultsDiv) resultsDiv.innerHTML = `<p style="color:#dc2626">Network error: ${em}</p>`;
+      setStatus(`Search error: ${em}`, true);
+      if (resultsDiv) {
+        resultsDiv.innerHTML = `<p style="color:#dc2626">Search error: ${em}</p>`;
+      }
       if (searchButton) searchButton.disabled = false;
     } finally {
       console.debug("[search] total elapsed ms:", Math.round(performance.now() - t0));
     }
+  }
+
+  async function fallbackToRegularSearch(url) {
+    const resultsDiv = document.getElementById("results");
+    const searchButton = document.getElementById("searchButton");
+    const resetButton = document.getElementById("resetButton");
+    
+    try {
+      setStatus("Searching...");
+      
+      // Use regular search endpoint (no streaming)
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        setStatus(`Error: ${data.error}`, true);
+        if (resultsDiv) {
+          resultsDiv.innerHTML = `<p style="color:#dc2626">Error: ${data.error}</p>`;
+        }
+        if (searchButton) searchButton.disabled = false;
+        return;
+      }
+      
+      const results = data.results || [];
+      
+      // Convert results to matchedRecords format
+      matchedRecords = results.map(rec => ({
+        record_id: rec.record_id || pick_id_from_record(rec),
+        permit_number: rec.permit_number || rec.PermitNumber || rec.PermitNum || rec.record_id,
+        address: rec.address || rec.SearchAddress || rec.OriginalAddress1 || rec.AddressDescription || "Address not available",
+        city: rec.city || rec.OriginalCity || rec.City || "",
+        zip: rec.zip || rec.OriginalZip || rec.ZipCode || "",
+        work_description: rec.work_description || rec.WorkDescription || rec.ProjectDescription || rec.Description || "",
+        status: rec.status || rec.StatusCurrentMapped || rec.CurrentStatus || "",
+        applied_date: rec.applied_date || rec.AppliedDate || rec.ApplicationDate || ""
+      }));
+      
+      // Update display
+      updateResultsDisplay();
+      
+      searchInProgress = false;
+      setStatus(`Search complete: ${matchedRecords.length} record(s) found`);
+      if (searchButton) searchButton.disabled = false;
+      if (resetButton) resetButton.style.display = "inline-block";
+      
+    } catch (err) {
+      searchInProgress = false;
+      const em = (err && err.message) ? err.message : String(err);
+      setStatus(`Search error: ${em}`, true);
+      if (resultsDiv) {
+        resultsDiv.innerHTML = `<p style="color:#dc2626">Search error: ${em}</p>`;
+      }
+      if (searchButton) searchButton.disabled = false;
+    }
+  }
+
+  function pick_id_from_record(rec) {
+    const candidates = ["PermitNumber", "PermitNum", "_id", "ID", "OBJECTID", "FID", "ApplicationNumber"];
+    for (const candidate of candidates) {
+      if (rec[candidate]) {
+        return String(rec[candidate]);
+      }
+    }
+    return "unknown";
   }
 
   function updateResultsDisplay() {
@@ -565,6 +673,12 @@ window.initAutocomplete = function() {
     if (searchForm) {
       searchForm.addEventListener("submit", async (ev) => {
         ev.preventDefault();
+        ev.stopPropagation();
+        ev.stopImmediatePropagation();
+        
+        // Prevent any default form behavior
+        if (ev.defaultPrevented) return;
+        
         const city = cityInput ? cityInput.value.trim() : "";
         const permit = permitInput ? permitInput.value.trim() : "";
         const address = addressInput ? addressInput.value.trim() : "";
@@ -572,9 +686,12 @@ window.initAutocomplete = function() {
         const dt = dateTo ? dateTo.value : "";
 
         // Address is mandatory
-        if (!address) { setStatus("Property Address is required.", true); return; }
+        if (!address) { 
+          setStatus("Property Address is required.", true); 
+          return false; 
+        }
 
-        // Build search URL and use long timeout (180s). Permit is optional, used only with address.
+        // Build search URL - NO scan_limit parameter (not used by backend)
         const params = new URLSearchParams();
         params.append("address", address);
         if (city) params.append("city", city);
@@ -582,8 +699,6 @@ window.initAutocomplete = function() {
         if (df) params.append("date_from", df);
         if (dt) params.append("date_to", dt);
         params.append("max_results", "500");
-        // increase scan limit to search more CSV blobs on the server
-        params.append("scan_limit", "200");
         // include structured address parts - prefer manually entered values over Google parsed values
         // This allows users to edit sub-fields even after Google autocomplete, or fill them manually
         const addrNumberEl = document.getElementById("addr_number");
