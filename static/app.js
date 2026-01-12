@@ -1,9 +1,23 @@
 // /static/app.js
 // Define initAutocomplete callback globally BEFORE Google Maps script loads
+// This MUST be a global function that Google Maps can call
 window.initAutocomplete = function() {
-  // This will be called by Google Maps API when it loads
-  // The actual initialization happens in DOMContentLoaded below
-  console.log("Google Maps API loaded, waiting for DOM...");
+  console.log("Google Maps API loaded, callback called");
+  // The actual initialization will happen in DOMContentLoaded
+  // If DOM is already loaded, try to initialize immediately
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(function() {
+      if (window.google && window.google.maps && window.google.maps.places) {
+        try {
+          if (typeof window._initAutocompleteInternal === 'function') {
+            window._initAutocompleteInternal();
+          }
+        } catch (e) {
+          console.warn("Early autocomplete init failed:", e);
+        }
+      }
+    }, 100);
+  }
 };
 
 (() => {
@@ -674,24 +688,29 @@ window.initAutocomplete = function() {
 
     // Initialize autocomplete when both DOM and Google Maps are ready
     function tryInitAutocomplete() {
-    if (window.google && window.google.maps && window.google.maps.places) {
+      if (window.google && window.google.maps && window.google.maps.places) {
         try { 
           initAutocompleteSafe(); 
+          console.log("Autocomplete initialized successfully");
         } catch(e) { 
           console.warn("initAutocomplete failed:", e); 
         }
-    } else {
+      } else {
         // If Google Maps isn't ready yet, wait a bit and try again
         setTimeout(tryInitAutocomplete, 100);
       }
     }
     
-    // Update the global callback to actually initialize
+    // Store the internal init function so the global callback can use it
+    window._initAutocompleteInternal = tryInitAutocomplete;
+    
+    // Update the global callback to actually initialize (if called again)
     window.initAutocomplete = function() {
+      console.log("initAutocomplete callback called");
       tryInitAutocomplete();
     };
     
-    // Also try immediately in case Google Maps already loaded
+    // Try immediately in case Google Maps already loaded
     tryInitAutocomplete();
 
     // Removed permit-only auto lookup; address is required for search
@@ -765,7 +784,7 @@ window.initAutocomplete = function() {
           }
         }
         
-          console.debug("[search] params (pre-url):", {
+          console.log("[search] params (pre-url):", {
           address, city, df, dt,
           manual: { streetNumber, streetName, streetType, zip },
           streetDir
@@ -779,8 +798,8 @@ window.initAutocomplete = function() {
         if (zip) params.append("zip_q", zip);
 
         const url = `${API_BASE}/search?${params.toString()}`;
-        console.debug("[search] url:", url);
-        console.debug("[search] Starting search - page should NOT navigate");
+        console.log("[search] url:", url);
+        console.log("[search] Starting search - page should NOT navigate");
         
         try {
           // Use regular search (don't clear form - user might want to search again)
@@ -795,7 +814,10 @@ window.initAutocomplete = function() {
         return false; // Prevent any form submission
       }, true); // Use capture phase to ensure we catch it first
       
+      console.log("[DOMContentLoaded] Form submit handler attached successfully");
       // Button click will naturally trigger form submit, which is handled above
+    } else {
+      console.error("[DOMContentLoaded] searchForm not found - cannot attach handlers!");
     }
 
     // Setup reset button click handler
