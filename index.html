@@ -189,13 +189,13 @@
 
         </div>
 
-        <!-- Button -->
-        <div style="text-align:center; width:100%;">
+        <!-- Buttons -->
+        <div style="text-align:center; width:100%; display:flex; gap:10px;">
           <button id="searchButton" type="submit" style="
         display:flex; 
         align-items:center; 
         justify-content:center; 
-        width:100%; 
+        flex:1;
         height:40px; 
         gap:8px; 
         background:#20334e; 
@@ -207,6 +207,22 @@
         cursor:pointer;
       ">
             <span>🔍</span> Search Permit
+          </button>
+          <button id="resetButton" type="button" style="
+        display:none;
+        align-items:center; 
+        justify-content:center; 
+        padding: 0 20px;
+        height:40px; 
+        background:#dc2626; 
+        color:#fff; 
+        border:none; 
+        border-radius:8px; 
+        font-weight:700; 
+        font-size:14px;
+        cursor:pointer;
+      ">
+            Reset
           </button>
         </div>
 
@@ -282,6 +298,9 @@
       </div>
     </div>
   </section>
+
+  <!-- Results Container -->
+  <div id="results" style="display:none; width:100%; max-width:800px; margin:20px auto; padding:0 20px;"></div>
 
   <!-- App JS -->
   <script src="/static/app.js?v=dev2"></script>

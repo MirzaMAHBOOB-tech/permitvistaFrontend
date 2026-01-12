@@ -12,6 +12,7 @@ window.initAutocomplete = function() {
   const API_BASE = isProduction 
     ? 'https://permitvistabackend.onrender.com' 
     : 'http://127.0.0.1:8000';
+  const API_BASE_URL = API_BASE; // Alias for consistency
 
   function setStatus(msg, isError = false) {
     let s = document.getElementById("statusLine");
@@ -270,50 +271,214 @@ window.initAutocomplete = function() {
     console.log("[form] All fields cleared successfully");
   }
 
+  // Store matched records
+  let matchedRecords = [];
+  let searchInProgress = false;
+
   async function fetchAndRenderSearch(url) {
     const resultsDiv = document.getElementById("results");
     const searchButton = document.getElementById("searchButton");
-    setStatus("Searching (this may take a bit)...");
-    if (resultsDiv) { resultsDiv.style.display = "block"; resultsDiv.innerHTML = "<p>Searching...</p>"; }
+    const resetButton = document.getElementById("resetButton");
+    
+    // Reset previous results
+    matchedRecords = [];
+    searchInProgress = true;
+    
+    setStatus("Searching...");
+    if (resultsDiv) { 
+      resultsDiv.style.display = "block"; 
+      resultsDiv.innerHTML = `
+        <div id="resultsContainer" style="margin-top: 20px;">
+          <div id="resultsHeader" style="text-align: center; margin-bottom: 15px;">
+            <h3 style="margin: 0; color: #20334e; font-size: 18px;">Found <span id="recordCount">0</span> record(s)</h3>
+          </div>
+          <div id="resultsCards" style="display: flex; flex-direction: column; gap: 12px;"></div>
+        </div>
+      `; 
+    }
     if (searchButton) searchButton.disabled = true;
+    if (resetButton) resetButton.style.display = "none";
+    
     const t0 = performance.now();
+    
     try {
-      const r = await fetchJsonOrBinary(url, {}, 180000); // 180s
-      if (!r.ok) { setStatus(`Server returned ${r.status}`, true); if (resultsDiv) resultsDiv.innerHTML = `<p style="color:#dc2626">Server returned ${r.status}</p>`; return; }
-      const results = (r.json && r.json.results) ? r.json.results : [];
-      const dbg = {
-        server_duration_ms: r.json && typeof r.json.duration_ms === "number" ? r.json.duration_ms : undefined,
-        canonical_hit: r.json && typeof r.json.canonical_hit !== "undefined" ? r.json.canonical_hit : undefined
-      };
-      console.debug("[search] response meta:", dbg);
-      renderResults(results);
-      setStatus(`${results.length} result(s) found`);
-      // Auto-open PDF when exactly one canonical match returned
-      try {
-        if (results.length === 1 && dbg.canonical_hit) {
-          const only = results[0];
-          const id = chooseIdFromRecord(only);
-          const encodedId = encodeURIComponent(id);
-          const viewLink = makeAbsoluteUrl(only.view_url || `/view/${encodedId}`);
-          setStatus("Exact match found — opening PDF...");
-          openPdfUrl(viewLink);
+      // Use streaming endpoint
+      const streamUrl = url.replace("/search?", "/search-stream?");
+      const eventSource = new EventSource(streamUrl);
+      
+      eventSource.onmessage = function(event) {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'record') {
+            // Add record to matched records
+            matchedRecords.push(data.data);
+            updateResultsDisplay();
+            setStatus(`Found ${data.count} record(s)...`);
+          } else if (data.type === 'complete') {
+            eventSource.close();
+            searchInProgress = false;
+            setStatus(`Search complete: ${data.total} record(s) found`);
+            if (searchButton) searchButton.disabled = false;
+            if (resetButton) resetButton.style.display = "inline-block";
+          } else if (data.type === 'error') {
+            eventSource.close();
+            searchInProgress = false;
+            setStatus(`Error: ${data.message}`, true);
+            if (resultsDiv) {
+              resultsDiv.innerHTML = `<p style="color:#dc2626">Error: ${data.message}</p>`;
+            }
+            if (searchButton) searchButton.disabled = false;
+          }
+        } catch (e) {
+          console.error("Error parsing SSE data:", e);
         }
-      } catch (e) { /* ignore */ }
-      // Fields already cleared before request was sent
+      };
+      
+      eventSource.onerror = function(error) {
+        eventSource.close();
+        searchInProgress = false;
+        setStatus("Search connection error", true);
+        if (resultsDiv) {
+          resultsDiv.innerHTML = `<p style="color:#dc2626">Search connection error. Please try again.</p>`;
+        }
+        if (searchButton) searchButton.disabled = false;
+        console.error("SSE error:", error);
+      };
+      
     } catch (err) {
+      searchInProgress = false;
       const em = (err && err.message) ? err.message : String(err);
-      if (em.includes("Request timeout")) {
-        setStatus("Search timed out — server took too long to respond.", true);
-        if (resultsDiv) resultsDiv.innerHTML = `<p style="color:#dc2626">Search timed out. Try again or increase server scan limit.</p>`;
-      } else {
-        setStatus(`Network error: ${em}`, true);
-        if (resultsDiv) resultsDiv.innerHTML = `<p style="color:#dc2626">Network error: ${em}</p>`;
-      }
-      // Fields already cleared before request was sent
+      setStatus(`Network error: ${em}`, true);
+      if (resultsDiv) resultsDiv.innerHTML = `<p style="color:#dc2626">Network error: ${em}</p>`;
+      if (searchButton) searchButton.disabled = false;
     } finally {
       console.debug("[search] total elapsed ms:", Math.round(performance.now() - t0));
-      if (searchButton) searchButton.disabled = false;
     }
+  }
+
+  function updateResultsDisplay() {
+    const cardsContainer = document.getElementById("resultsCards");
+    const countElement = document.getElementById("recordCount");
+    
+    if (!cardsContainer) return;
+    
+    // Update count
+    if (countElement) {
+      countElement.textContent = matchedRecords.length;
+    }
+    
+    // Render all cards
+    cardsContainer.innerHTML = matchedRecords.map((record, index) => {
+      const address = record.address || "Address not available";
+      const city = record.city ? `, ${record.city}` : "";
+      const zip = record.zip ? ` ${record.zip}` : "";
+      const fullAddress = `${address}${city}${zip}`;
+      const permitNum = record.permit_number || record.record_id || "N/A";
+      const description = record.work_description || "No description available";
+      const status = record.status || "";
+      const appliedDate = record.applied_date || "";
+      
+      return `
+        <div class="record-card" 
+             data-record-id="${record.record_id}" 
+             data-permit-number="${permitNum}"
+             style="
+               background: #fff;
+               padding: 16px;
+               border-radius: 10px;
+               border: 1px solid #e5e7eb;
+               box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+               cursor: pointer;
+               transition: all 0.2s;
+               margin-bottom: 0;
+             "
+             onmouseover="this.style.boxShadow='0 6px 16px rgba(0,0,0,0.15)'; this.style.transform='translateY(-2px)'"
+             onmouseout="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'; this.style.transform='translateY(0)'"
+             onclick="window.selectRecordForPDF(${index})">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+            <div style="flex: 1; min-width: 0;">
+              <h4 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 700; color: #111827;">
+                ${safeText(permitNum)}
+              </h4>
+              <div style="color: #374151; font-size: 14px; margin-bottom: 10px; line-height: 1.5;">
+                <strong>Address:</strong> ${safeText(fullAddress)}
+              </div>
+              <div style="color: #6b7280; font-size: 13px; margin-bottom: 10px; line-height: 1.4;">
+                <strong>Description:</strong> ${safeText(description.substring(0, 150))}${description.length > 150 ? '...' : ''}
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+                ${status ? `<span style="background: #f3f4f6; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">${safeText(status)}</span>` : ""}
+                ${appliedDate ? `<span style="background: #f3f4f6; padding: 4px 8px; border-radius: 6px; font-size: 12px;">Applied: ${safeText(appliedDate)}</span>` : ""}
+              </div>
+            </div>
+            <div style="display: flex; align-items: center;">
+              <button style="
+                padding: 8px 16px;
+                background: #2563eb;
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 14px;
+                cursor: pointer;
+              ">Generate PDF</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  window.selectRecordForPDF = async function selectRecordForPDF(index) {
+    const record = matchedRecords[index];
+    if (!record) return;
+    
+    setStatus("Generating PDF...");
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/generate-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          record_id: record.record_id,
+          permit_number: record.permit_number
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.view_url) {
+        setStatus("PDF generated successfully!");
+        // Open PDF in new tab
+        window.open(data.view_url, '_blank');
+      } else {
+        throw new Error("PDF generation failed");
+      }
+    } catch (error) {
+      setStatus(`Error generating PDF: ${error.message}`, true);
+      alert(`Error generating PDF: ${error.message}`);
+    }
+  }
+
+  window.resetSearch = function resetSearch() {
+    matchedRecords = [];
+    searchInProgress = false;
+    const resultsDiv = document.getElementById("results");
+    if (resultsDiv) {
+      resultsDiv.style.display = "none";
+      resultsDiv.innerHTML = "";
+    }
+    const resetButton = document.getElementById("resetButton");
+    if (resetButton) resetButton.style.display = "none";
+    setStatus("Ready.");
+    clearFormFields();
   }
 
   function renderResults(list) {
@@ -470,56 +635,17 @@ window.initAutocomplete = function() {
         const url = `${API_BASE}/search?${params.toString()}`;
         console.debug("[search] url:", url);
         
-        // Clear form fields immediately after building URL (before sending request)
-        // Use setTimeout to ensure clearing happens after any pending events
-        setTimeout(() => {
-          clearFormFields();
-        }, 0);
-        
-        // Also clear immediately (double-clear to be sure)
-        clearFormFields();
-        
-        // Open loading page
-        let loadingWin = null;
-        try { loadingWin = window.open(makeAbsoluteUrl("/static/loading.htm"), "_blank"); } catch(e) {}
-        // Fire the search; backend will early-return with PDF if a match is found
-        // Increased timeout to 10 minutes (600000ms) to accommodate long backend searches
-        try {
-          const r = await fetchJsonOrBinary(url, {}, 600000);
-          if (!r.ok) { setStatus(`Server returned ${r.status}`, true); return; }
-          const j = r.json || {};
-          if (j.pdf_error) {
-            console.error("[pdf] generation error:", j.pdf_error);
-            setStatus("Match found but PDF generation failed.", true);
-            alert("PDF generation failed. See console for details.");
-            try { if (loadingWin) loadingWin.close(); } catch(e) {}
-            return;
-          }
-          const targetView = j.view_url || (j.results && j.results[0] && (j.results[0].view_url)) || null;
-          if (targetView) {
-            setStatus("Match found — opening PDF...");
-            const href = makeAbsoluteUrl(targetView);
-            try {
-              if (loadingWin) {
-                loadingWin.location = href;
-                loadingWin.focus();
-              } else {
-                openPdfUrl(href);
-              }
-            } catch (e) {
-              openPdfUrl(href);
-            }
-          } else {
-            setStatus("No matching record found.", true);
-            try { if (loadingWin) loadingWin.close(); } catch(e) {}
-          }
-          // Fields already cleared before request was sent
-        } catch (err) {
-          const em = (err && err.message) ? err.message : String(err);
-          if (em.includes("Request timeout")) setStatus("Search timed out — server took too long to respond. The index is being built in the background. Please try again in a few minutes or add a date range for faster results.", true);
-          else setStatus(`Network error: ${em}`, true);
-          try { if (loadingWin) loadingWin.close(); } catch(e) {}
-          // Fields already cleared before request was sent
+        // Use new streaming search (don't clear form - user might want to search again)
+        await fetchAndRenderSearch(url);
+      });
+    }
+
+    // Setup reset button click handler
+    const resetButton = document.getElementById("resetButton");
+    if (resetButton) {
+      resetButton.addEventListener("click", function() {
+        if (typeof window.resetSearch === 'function') {
+          window.resetSearch();
         }
       });
     }
