@@ -276,26 +276,36 @@ window.initAutocomplete = function() {
   let searchInProgress = false;
 
   async function fetchAndRenderSearch(url) {
+    console.log("[fetchAndRenderSearch] Starting search with URL:", url);
     const resultsDiv = document.getElementById("results");
     const searchButton = document.getElementById("searchButton");
     const resetButton = document.getElementById("resetButton");
+    
+    if (!resultsDiv) {
+      console.error("[fetchAndRenderSearch] Results div not found!");
+      setStatus("Error: Results container not found", true);
+      return;
+    }
     
     // Reset previous results
     matchedRecords = [];
     searchInProgress = true;
     
     setStatus("Searching...");
-    if (resultsDiv) { 
-      resultsDiv.style.display = "block"; 
-      resultsDiv.innerHTML = `
-        <div id="resultsContainer" style="margin-top: 20px;">
-          <div id="resultsHeader" style="text-align: center; margin-bottom: 15px;">
-            <h3 style="margin: 0; color: #20334e; font-size: 18px;">Found <span id="recordCount">0</span> record(s)</h3>
-          </div>
-          <div id="resultsCards" style="display: flex; flex-direction: column; gap: 12px;"></div>
+    console.log("[fetchAndRenderSearch] Showing results container");
+    
+    // Show and initialize results container
+    resultsDiv.style.display = "block";
+    resultsDiv.style.visibility = "visible";
+    resultsDiv.innerHTML = `
+      <div id="resultsContainer" style="margin-top: 20px; width: 100%;">
+        <div id="resultsHeader" style="text-align: center; margin-bottom: 15px;">
+          <h3 style="margin: 0; color: #20334e; font-size: 18px;">Found <span id="recordCount">0</span> record(s)</h3>
         </div>
-      `; 
-    }
+        <div id="resultsCards" style="display: flex; flex-direction: column; gap: 12px; width: 100%;"></div>
+      </div>
+    `; 
+    
     if (searchButton) searchButton.disabled = true;
     if (resetButton) resetButton.style.display = "none";
     
@@ -346,6 +356,7 @@ window.initAutocomplete = function() {
       }
       
       // Convert results to matchedRecords format
+      console.log("[fetchAndRenderSearch] Converting", results.length, "results to display format");
       matchedRecords = results.map(rec => {
         // Use chooseIdFromRecord function that exists in the codebase
         const recId = rec.record_id || (() => {
@@ -370,13 +381,24 @@ window.initAutocomplete = function() {
         };
       });
       
+      console.log("[fetchAndRenderSearch] Converted to", matchedRecords.length, "matched records");
+      console.log("[fetchAndRenderSearch] Sample record:", matchedRecords[0]);
+      
       // Update display with all results
       updateResultsDisplay();
+      
+      // Ensure results div is visible
+      if (resultsDiv) {
+        resultsDiv.style.display = "block";
+        resultsDiv.style.visibility = "visible";
+      }
       
       searchInProgress = false;
       setStatus(`Search complete: ${matchedRecords.length} record(s) found`);
       if (searchButton) searchButton.disabled = false;
       if (resetButton) resetButton.style.display = "inline-block";
+      
+      console.log("[fetchAndRenderSearch] Search complete, results should be visible");
       
     } catch (err) {
       searchInProgress = false;
@@ -466,10 +488,14 @@ window.initAutocomplete = function() {
   }
 
   function updateResultsDisplay() {
+    console.log("[updateResultsDisplay] Updating display with", matchedRecords.length, "records");
     const cardsContainer = document.getElementById("resultsCards");
     const countElement = document.getElementById("recordCount");
     
-    if (!cardsContainer) return;
+    if (!cardsContainer) {
+      console.error("[updateResultsDisplay] resultsCards container not found!");
+      return;
+    }
     
     // Update count
     if (countElement) {
@@ -756,21 +782,20 @@ window.initAutocomplete = function() {
         console.debug("[search] url:", url);
         console.debug("[search] Starting search - page should NOT navigate");
         
-        // Use regular search (don't clear form - user might want to search again)
-        // This will display results on the same page without navigation
-        await fetchAndRenderSearch(url);
+        try {
+          // Use regular search (don't clear form - user might want to search again)
+          // This will display results on the same page without navigation
+          await fetchAndRenderSearch(url);
+        } catch (error) {
+          console.error("[search] Error during search:", error);
+          setStatus(`Search error: ${error.message}`, true);
+          if (searchButton) searchButton.disabled = false;
+        }
         
         return false; // Prevent any form submission
       }, true); // Use capture phase to ensure we catch it first
       
-      // Also prevent form submission via button click
-      if (searchButton) {
-        searchButton.addEventListener("click", function(ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          // Don't trigger form submit - let the form submit handler do it
-        }, true);
-      }
+      // Button click will naturally trigger form submit, which is handled above
     }
 
     // Setup reset button click handler
