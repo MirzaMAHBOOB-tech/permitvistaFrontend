@@ -208,18 +208,7 @@ window.initAutocomplete = function() {
   function clearFormFields() {
     console.log("[form] Starting to clear all fields...");
     
-    // First, try form.reset() which is the most reliable way
-    const searchForm = document.getElementById("searchForm");
-    if (searchForm) {
-      try {
-        searchForm.reset();
-        console.log("[form] Form reset() called");
-      } catch (e) {
-        console.warn("[form] Form reset() failed:", e);
-      }
-    }
-    
-    // Then manually clear each field to be absolutely sure
+    // Get all form elements
     const addressInput = document.getElementById("addressInput");
     const cityInput = document.getElementById("cityInput");
     const permitInput = document.getElementById("permitInput");
@@ -230,59 +219,47 @@ window.initAutocomplete = function() {
     const addrType = document.getElementById("addr_type");
     const addrZip = document.getElementById("addr_zip");
     
-    // Clear address input
-    if (addressInput) {
-      addressInput.value = "";
-      if (addressInput.dataset) {
-        addressInput.dataset.parsed = "";
-        delete addressInput.dataset.parsed;
+    // Clear all fields and trigger proper events for UI update
+    const fields = [
+      { el: addressInput, event: 'input' },
+      { el: cityInput, event: 'input' },
+      { el: permitInput, event: 'input' },
+      { el: dateFrom, event: 'change' },
+      { el: dateTo, event: 'change' },
+      { el: addrNumber, event: 'input' },
+      { el: addrName, event: 'input' },
+      { el: addrType, event: 'input' },
+      { el: addrZip, event: 'input' }
+    ];
+    
+    fields.forEach(({ el, event }) => {
+      if (el) {
+        el.value = "";
+        // Trigger event to ensure UI updates
+        el.dispatchEvent(new Event(event, { bubbles: true, cancelable: true }));
       }
-      // Trigger input event to ensure UI updates
-      addressInput.dispatchEvent(new Event('input', { bubbles: true }));
-      console.log("[form] Address cleared, value is now:", addressInput.value);
+    });
+    
+    // Clear address input dataset
+    if (addressInput && addressInput.dataset) {
+      addressInput.dataset.parsed = "";
+      delete addressInput.dataset.parsed;
     }
     
-    // Clear city
-    if (cityInput) {
-      cityInput.value = "";
-      cityInput.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    
-    // Clear permit
-    if (permitInput) {
-      permitInput.value = "";
-      permitInput.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    
-    // Clear dates
-    if (dateFrom) {
-      dateFrom.value = "";
-      dateFrom.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    if (dateTo) {
-      dateTo.value = "";
-      dateTo.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    
-    // Clear address sub-fields
-    if (addrNumber) {
-      addrNumber.value = "";
-      addrNumber.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    if (addrName) {
-      addrName.value = "";
-      addrName.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    if (addrType) {
-      addrType.value = "";
-      addrType.dispatchEvent(new Event('input', { bubbles: true }));
-    }
-    if (addrZip) {
-      addrZip.value = "";
-      addrZip.dispatchEvent(new Event('input', { bubbles: true }));
+    // Also use form.reset() as additional method
+    const searchForm = document.getElementById("searchForm");
+    if (searchForm) {
+      try {
+        searchForm.reset();
+        console.log("[form] Form reset() called");
+      } catch (e) {
+        console.warn("[form] Form reset() failed:", e);
+      }
     }
     
     console.log("[form] All fields cleared successfully");
+    console.log("[form] Address value:", addressInput ? addressInput.value : "N/A");
+    console.log("[form] City value:", cityInput ? cityInput.value : "N/A");
   }
 
   // Store matched records
@@ -870,7 +847,8 @@ window.initAutocomplete = function() {
         console.log("[search] url:", url);
         console.log("[search] Starting search - page should NOT navigate");
         
-        // Clear form fields immediately after search is submitted to backend
+        // Clear form fields immediately after values are read and URL is built
+        // Clear synchronously so user sees empty fields right away
         clearFormFields();
         
         try {
@@ -956,7 +934,8 @@ window.initAutocomplete = function() {
           const url = `${API_BASE}/search?${params.toString()}`;
           console.log("[button] Starting search with URL:", url);
           
-          // Clear form fields immediately after search is submitted to backend
+          // Clear form fields immediately after values are read and URL is built
+          // Clear synchronously so user sees empty fields right away
           clearFormFields();
           
           try {
