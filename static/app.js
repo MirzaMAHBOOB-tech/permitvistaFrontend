@@ -204,11 +204,11 @@ window.initAutocomplete = function() {
     try { return new URL(maybeUrl, API_BASE).href; } catch (e) { return API_BASE + (maybeUrl.startsWith("/") ? maybeUrl : `/${maybeUrl}`); }
   }
 
-  // Function to clear all form fields
-  function clearFormFields() {
-    console.log("[form] Starting to clear all fields...");
+  // Simple function to empty all form fields
+  function emptyAllFields() {
+    console.log("[emptyAllFields] Clearing all fields...");
     
-    // Get all form elements
+    // Get all form elements and set them to empty string
     const addressInput = document.getElementById("addressInput");
     const cityInput = document.getElementById("cityInput");
     const permitInput = document.getElementById("permitInput");
@@ -219,47 +219,28 @@ window.initAutocomplete = function() {
     const addrType = document.getElementById("addr_type");
     const addrZip = document.getElementById("addr_zip");
     
-    // Clear all fields and trigger proper events for UI update
-    const fields = [
-      { el: addressInput, event: 'input' },
-      { el: cityInput, event: 'input' },
-      { el: permitInput, event: 'input' },
-      { el: dateFrom, event: 'change' },
-      { el: dateTo, event: 'change' },
-      { el: addrNumber, event: 'input' },
-      { el: addrName, event: 'input' },
-      { el: addrType, event: 'input' },
-      { el: addrZip, event: 'input' }
-    ];
-    
-    fields.forEach(({ el, event }) => {
-      if (el) {
-        el.value = "";
-        // Trigger event to ensure UI updates
-        el.dispatchEvent(new Event(event, { bubbles: true, cancelable: true }));
-      }
-    });
-    
-    // Clear address input dataset
-    if (addressInput && addressInput.dataset) {
-      addressInput.dataset.parsed = "";
-      delete addressInput.dataset.parsed;
-    }
-    
-    // Also use form.reset() as additional method
-    const searchForm = document.getElementById("searchForm");
-    if (searchForm) {
-      try {
-        searchForm.reset();
-        console.log("[form] Form reset() called");
-      } catch (e) {
-        console.warn("[form] Form reset() failed:", e);
+    // Simply set all values to empty string
+    if (addressInput) {
+      addressInput.value = "";
+      if (addressInput.dataset) {
+        delete addressInput.dataset.parsed;
       }
     }
+    if (cityInput) cityInput.value = "";
+    if (permitInput) permitInput.value = "";
+    if (dateFrom) dateFrom.value = "";
+    if (dateTo) dateTo.value = "";
+    if (addrNumber) addrNumber.value = "";
+    if (addrName) addrName.value = "";
+    if (addrType) addrType.value = "";
+    if (addrZip) addrZip.value = "";
     
-    console.log("[form] All fields cleared successfully");
-    console.log("[form] Address value:", addressInput ? addressInput.value : "N/A");
-    console.log("[form] City value:", cityInput ? cityInput.value : "N/A");
+    console.log("[emptyAllFields] All fields emptied successfully");
+  }
+
+  // Function to clear all form fields (keeping for backward compatibility)
+  function clearFormFields() {
+    emptyAllFields();
   }
 
   // Store matched records
@@ -632,8 +613,9 @@ window.initAutocomplete = function() {
     }
   }
   
+  // Close results modal and empty all fields
   window.closeResults = function closeResults() {
-    console.log("[closeResults] Closing results");
+    console.log("[closeResults] Closing results and emptying fields");
     const resultsDiv = document.getElementById("results");
     if (resultsDiv) {
       resultsDiv.style.display = "none";
@@ -641,9 +623,8 @@ window.initAutocomplete = function() {
     matchedRecords = [];
     searchInProgress = false;
     setStatus("Ready.");
-    // Clear form fields when user closes the results modal
-    clearFormFields();
-    console.log("[closeResults] Form fields cleared");
+    // Empty all form fields when user clicks close button
+    emptyAllFields();
   }
 
   window.resetSearch = function resetSearch() {
@@ -658,21 +639,7 @@ window.initAutocomplete = function() {
       }
     }
     setStatus("Ready.");
-    clearFormFields();
-  }
-  
-  window.closeResults = function closeResults() {
-    console.log("[closeResults] Closing results");
-    const resultsDiv = document.getElementById("results");
-    if (resultsDiv) {
-      resultsDiv.style.display = "none";
-    }
-    matchedRecords = [];
-    searchInProgress = false;
-    setStatus("Ready.");
-    // Clear form fields when user closes the results modal
-    clearFormFields();
-    console.log("[closeResults] Form fields cleared");
+    emptyAllFields();
   }
 
   function renderResults(list) {
