@@ -204,11 +204,24 @@ window.initAutocomplete = function() {
     try { return new URL(maybeUrl, API_BASE).href; } catch (e) { return API_BASE + (maybeUrl.startsWith("/") ? maybeUrl : `/${maybeUrl}`); }
   }
 
-  // Simple function to empty all form fields
-  function emptyAllFields() {
-    console.log("[emptyAllFields] Clearing all fields...");
+  // Simple function to empty all form fields - make it globally accessible
+  window.emptyAllFields = function emptyAllFields() {
+    console.log("[emptyAllFields] Starting to empty all fields...");
     
-    // Get all form elements and set them to empty string
+    // First try form.reset() - most reliable method
+    const searchForm = document.getElementById("searchForm");
+    if (searchForm) {
+      try {
+        searchForm.reset();
+        console.log("[emptyAllFields] Form.reset() called successfully");
+      } catch (e) {
+        console.warn("[emptyAllFields] Form.reset() failed:", e);
+      }
+    } else {
+      console.warn("[emptyAllFields] searchForm not found!");
+    }
+    
+    // Then manually clear each field to be absolutely sure
     const addressInput = document.getElementById("addressInput");
     const cityInput = document.getElementById("cityInput");
     const permitInput = document.getElementById("permitInput");
@@ -219,23 +232,72 @@ window.initAutocomplete = function() {
     const addrType = document.getElementById("addr_type");
     const addrZip = document.getElementById("addr_zip");
     
-    // Simply set all values to empty string
+    console.log("[emptyAllFields] Found elements:", {
+      addressInput: !!addressInput,
+      cityInput: !!cityInput,
+      permitInput: !!permitInput,
+      dateFrom: !!dateFrom,
+      dateTo: !!dateTo,
+      addrNumber: !!addrNumber,
+      addrName: !!addrName,
+      addrType: !!addrType,
+      addrZip: !!addrZip
+    });
+    
+    // Set all values to empty string
     if (addressInput) {
       addressInput.value = "";
       if (addressInput.dataset) {
         delete addressInput.dataset.parsed;
       }
+      console.log("[emptyAllFields] Address cleared, value:", addressInput.value);
+    } else {
+      console.error("[emptyAllFields] addressInput element not found!");
     }
-    if (cityInput) cityInput.value = "";
-    if (permitInput) permitInput.value = "";
-    if (dateFrom) dateFrom.value = "";
-    if (dateTo) dateTo.value = "";
-    if (addrNumber) addrNumber.value = "";
-    if (addrName) addrName.value = "";
-    if (addrType) addrType.value = "";
-    if (addrZip) addrZip.value = "";
     
-    console.log("[emptyAllFields] All fields emptied successfully");
+    if (cityInput) {
+      cityInput.value = "";
+      console.log("[emptyAllFields] City cleared, value:", cityInput.value);
+    }
+    if (permitInput) {
+      permitInput.value = "";
+      console.log("[emptyAllFields] Permit cleared, value:", permitInput.value);
+    }
+    if (dateFrom) {
+      dateFrom.value = "";
+      console.log("[emptyAllFields] DateFrom cleared, value:", dateFrom.value);
+    }
+    if (dateTo) {
+      dateTo.value = "";
+      console.log("[emptyAllFields] DateTo cleared, value:", dateTo.value);
+    }
+    if (addrNumber) {
+      addrNumber.value = "";
+      console.log("[emptyAllFields] AddrNumber cleared, value:", addrNumber.value);
+    }
+    if (addrName) {
+      addrName.value = "";
+      console.log("[emptyAllFields] AddrName cleared, value:", addrName.value);
+    }
+    if (addrType) {
+      addrType.value = "";
+      console.log("[emptyAllFields] AddrType cleared, value:", addrType.value);
+    }
+    if (addrZip) {
+      addrZip.value = "";
+      console.log("[emptyAllFields] AddrZip cleared, value:", addrZip.value);
+    }
+    
+    // Force UI update by triggering events
+    const fields = [addressInput, cityInput, permitInput, dateFrom, dateTo, addrNumber, addrName, addrType, addrZip];
+    fields.forEach(field => {
+      if (field) {
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
+    
+    console.log("[emptyAllFields] All fields emptied successfully!");
   }
 
   // Function to clear all form fields (keeping for backward compatibility)
@@ -615,16 +677,24 @@ window.initAutocomplete = function() {
   
   // Close results modal and empty all fields
   window.closeResults = function closeResults() {
-    console.log("[closeResults] Closing results and emptying fields");
+    console.log("[closeResults] ===== CLOSE BUTTON CLICKED =====");
     const resultsDiv = document.getElementById("results");
     if (resultsDiv) {
       resultsDiv.style.display = "none";
+      console.log("[closeResults] Results modal hidden");
     }
     matchedRecords = [];
     searchInProgress = false;
     setStatus("Ready.");
+    
     // Empty all form fields when user clicks close button
-    emptyAllFields();
+    console.log("[closeResults] Calling emptyAllFields()...");
+    try {
+      emptyAllFields();
+      console.log("[closeResults] emptyAllFields() completed");
+    } catch (e) {
+      console.error("[closeResults] Error calling emptyAllFields():", e);
+    }
   }
 
   window.resetSearch = function resetSearch() {
