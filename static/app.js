@@ -293,7 +293,6 @@ window.initAutocomplete = function() {
     console.log("[fetchAndRenderSearch] Starting search with URL:", url);
     const resultsDiv = document.getElementById("results");
     const searchButton = document.getElementById("searchButton");
-    const resetButton = document.getElementById("resetButton");
     
     if (!resultsDiv) {
       console.error("[fetchAndRenderSearch] Results div not found!");
@@ -325,7 +324,6 @@ window.initAutocomplete = function() {
     resultsDiv.style.visibility = "visible"; 
     
     if (searchButton) searchButton.disabled = true;
-    if (resetButton) resetButton.style.display = "none";
     
     const t0 = performance.now();
     
@@ -409,7 +407,8 @@ window.initAutocomplete = function() {
         searchInProgress = false;
         setStatus(`Search complete: ${matchedRecords.length} record(s) found`);
         if (searchButton) searchButton.disabled = false;
-        if (resetButton) resetButton.style.display = "inline-block";
+        // Auto-reset form fields after search completes
+        clearFormFields();
         
       } catch (err) {
         searchInProgress = false;
@@ -458,7 +457,8 @@ window.initAutocomplete = function() {
             
             setStatus(`Search complete: ${data.total} record(s) found`);
             if (searchButton) searchButton.disabled = false;
-            if (resetButton) resetButton.style.display = "inline-block";
+            // Auto-reset form fields after search completes
+            clearFormFields();
             console.log("[fetchAndRenderSearch] Stream complete, total:", data.total);
           } else if (data.type === 'error') {
             eventSource.close();
@@ -679,8 +679,6 @@ window.initAutocomplete = function() {
         resultsContent.innerHTML = "";
       }
     }
-    const resetButton = document.getElementById("resetButton");
-    if (resetButton) resetButton.style.display = "none";
     setStatus("Ready.");
     clearFormFields();
   }
@@ -971,16 +969,6 @@ window.initAutocomplete = function() {
       // Button click will naturally trigger form submit, which is handled above
     } else {
       console.error("[DOMContentLoaded] searchForm not found - cannot attach handlers!");
-    }
-
-    // Setup reset button click handler
-    const resetButton = document.getElementById("resetButton");
-    if (resetButton) {
-      resetButton.addEventListener("click", function() {
-        if (typeof window.resetSearch === 'function') {
-          window.resetSearch();
-        }
-      });
     }
   });
 })();
