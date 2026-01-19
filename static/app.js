@@ -206,22 +206,9 @@ window.initAutocomplete = function() {
 
   // Simple function to empty all form fields - make it globally accessible
   window.emptyAllFields = function emptyAllFields() {
-    console.log("[emptyAllFields] Starting to empty all fields...");
+    console.log("[emptyAllFields] ===== STARTING TO EMPTY ALL FIELDS =====");
     
-    // First try form.reset() - most reliable method
-    const searchForm = document.getElementById("searchForm");
-    if (searchForm) {
-      try {
-        searchForm.reset();
-        console.log("[emptyAllFields] Form.reset() called successfully");
-      } catch (e) {
-        console.warn("[emptyAllFields] Form.reset() failed:", e);
-      }
-    } else {
-      console.warn("[emptyAllFields] searchForm not found!");
-    }
-    
-    // Then manually clear each field to be absolutely sure
+    // Get all form elements first
     const addressInput = document.getElementById("addressInput");
     const cityInput = document.getElementById("cityInput");
     const permitInput = document.getElementById("permitInput");
@@ -231,28 +218,20 @@ window.initAutocomplete = function() {
     const addrName = document.getElementById("addr_name");
     const addrType = document.getElementById("addr_type");
     const addrZip = document.getElementById("addr_zip");
+    const searchForm = document.getElementById("searchForm");
     
-    console.log("[emptyAllFields] Found elements:", {
-      addressInput: !!addressInput,
-      cityInput: !!cityInput,
-      permitInput: !!permitInput,
-      dateFrom: !!dateFrom,
-      dateTo: !!dateTo,
-      addrNumber: !!addrNumber,
-      addrName: !!addrName,
-      addrType: !!addrType,
-      addrZip: !!addrZip
-    });
+    // Blur addressInput first to prevent Google autocomplete from triggering
+    if (addressInput) {
+      addressInput.blur();
+    }
     
-    // Set all values to empty string
+    // Set all values to empty string IMMEDIATELY
     if (addressInput) {
       addressInput.value = "";
       if (addressInput.dataset) {
         delete addressInput.dataset.parsed;
       }
       console.log("[emptyAllFields] Address cleared, value:", addressInput.value);
-    } else {
-      console.error("[emptyAllFields] addressInput element not found!");
     }
     
     if (cityInput) {
@@ -288,16 +267,34 @@ window.initAutocomplete = function() {
       console.log("[emptyAllFields] AddrZip cleared, value:", addrZip.value);
     }
     
-    // Force UI update by triggering events
-    const fields = [addressInput, cityInput, permitInput, dateFrom, dateTo, addrNumber, addrName, addrType, addrZip];
-    fields.forEach(field => {
-      if (field) {
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-        field.dispatchEvent(new Event('change', { bubbles: true }));
+    // Also try form.reset() as backup
+    if (searchForm) {
+      try {
+        searchForm.reset();
+        console.log("[emptyAllFields] Form.reset() called");
+      } catch (e) {
+        console.warn("[emptyAllFields] Form.reset() failed:", e);
       }
-    });
+    }
     
-    console.log("[emptyAllFields] All fields emptied successfully!");
+    // Force a small delay to prevent Google autocomplete from repopulating
+    setTimeout(() => {
+      // Double-check all fields are still empty
+      if (addressInput && addressInput.value) {
+        console.warn("[emptyAllFields] Address was repopulated! Clearing again...");
+        addressInput.value = "";
+        if (addressInput.dataset) delete addressInput.dataset.parsed;
+      }
+      if (cityInput && cityInput.value) {
+        console.warn("[emptyAllFields] City was repopulated! Clearing again...");
+        cityInput.value = "";
+      }
+      if (permitInput && permitInput.value) {
+        console.warn("[emptyAllFields] Permit was repopulated! Clearing again...");
+        permitInput.value = "";
+      }
+      console.log("[emptyAllFields] ===== ALL FIELDS EMPTIED SUCCESSFULLY =====");
+    }, 100);
   }
 
   // Function to clear all form fields (keeping for backward compatibility)
