@@ -641,6 +641,9 @@ window.initAutocomplete = function() {
     matchedRecords = [];
     searchInProgress = false;
     setStatus("Ready.");
+    // Clear form fields when user closes the results modal
+    clearFormFields();
+    console.log("[closeResults] Form fields cleared");
   }
 
   window.resetSearch = function resetSearch() {
@@ -667,6 +670,9 @@ window.initAutocomplete = function() {
     matchedRecords = [];
     searchInProgress = false;
     setStatus("Ready.");
+    // Clear form fields when user closes the results modal
+    clearFormFields();
+    console.log("[closeResults] Form fields cleared");
   }
 
   function renderResults(list) {
