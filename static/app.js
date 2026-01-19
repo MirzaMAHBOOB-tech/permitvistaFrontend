@@ -407,8 +407,7 @@ window.initAutocomplete = function() {
         searchInProgress = false;
         setStatus(`Search complete: ${matchedRecords.length} record(s) found`);
         if (searchButton) searchButton.disabled = false;
-        // Auto-reset form fields after search completes
-        clearFormFields();
+        // Form fields already cleared when search was submitted
         
       } catch (err) {
         searchInProgress = false;
@@ -457,8 +456,7 @@ window.initAutocomplete = function() {
             
             setStatus(`Search complete: ${data.total} record(s) found`);
             if (searchButton) searchButton.disabled = false;
-            // Auto-reset form fields after search completes
-            clearFormFields();
+            // Form fields already cleared when search was submitted
             console.log("[fetchAndRenderSearch] Stream complete, total:", data.total);
           } else if (data.type === 'error') {
             eventSource.close();
@@ -872,8 +870,11 @@ window.initAutocomplete = function() {
         console.log("[search] url:", url);
         console.log("[search] Starting search - page should NOT navigate");
         
+        // Clear form fields immediately after search is submitted to backend
+        clearFormFields();
+        
         try {
-          // Use regular search (don't clear form - user might want to search again)
+          // Use regular search - form already cleared above
           // This will display results on the same page without navigation
           await fetchAndRenderSearch(url);
         } catch (error) {
@@ -954,6 +955,9 @@ window.initAutocomplete = function() {
 
           const url = `${API_BASE}/search?${params.toString()}`;
           console.log("[button] Starting search with URL:", url);
+          
+          // Clear form fields immediately after search is submitted to backend
+          clearFormFields();
           
           try {
             await fetchAndRenderSearch(url);
