@@ -284,7 +284,7 @@ window.initAutocomplete = function() {
         console.warn("[emptyAllFields] Address was repopulated! Clearing again...");
         addressInput.value = "";
         if (addressInput.dataset) delete addressInput.dataset.parsed;
-      }
+    }
       if (cityInput && cityInput.value) {
         console.warn("[emptyAllFields] City was repopulated! Clearing again...");
         cityInput.value = "";
