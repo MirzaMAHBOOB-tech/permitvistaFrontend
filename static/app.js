@@ -645,7 +645,6 @@ window.initAutocomplete = function() {
         body: JSON.stringify({
           record_id: record.record_id,
           permit_number: record.permit_number,
-          record: record,
           table: record.table,
           address: record.address // Include address for Shovels API lookups
       })
