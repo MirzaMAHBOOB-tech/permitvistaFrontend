@@ -643,10 +643,11 @@ window.initAutocomplete = function() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          record_id: result.record_id,
-          record: result,  // <-- PASS THE FULL RECORD OBJECT
-          table: result.table,
-          address: result.address  // Include address for Shovels API lookups
+          record_id: record.record_id,
+          permit_number: record.permit_number,
+          record: record,
+          table: record.table,
+          address: record.address // Include address for Shovels API lookups
       })
       });
       
