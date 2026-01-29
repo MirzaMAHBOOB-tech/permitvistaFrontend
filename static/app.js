@@ -642,7 +642,12 @@ window.initAutocomplete = function() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          record_id: result.record_id,
+          record: result,  // <-- PASS THE FULL RECORD OBJECT
+          table: result.table,
+          address: result.address  // Include address for Shovels API lookups
+      })
       });
       
       console.log("[selectRecordForPDF] Response status:", response.status);
