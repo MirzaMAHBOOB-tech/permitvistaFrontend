@@ -438,87 +438,10 @@ window.initAutocomplete = function() {
       }
     }
     
-    // Use streaming search endpoint for incremental results
-    try {
-      // Replace /search with /search-stream for incremental results
-      const streamUrl = url.replace("/search?", "/search-stream?");
-      console.log("[fetchAndRenderSearch] Using streaming endpoint:", streamUrl);
-      
-      const eventSource = new EventSource(streamUrl);
-      let streamActive = true;
-      
-      eventSource.onmessage = function(event) {
-        try {
-          const data = JSON.parse(event.data);
-          
-          if (data.type === 'record') {
-            // Add record to matched records immediately
-            matchedRecords.push(data.data);
-            updateResultsDisplay();
-            console.log("[fetchAndRenderSearch] Received record", data.count);
-          } else if (data.type === 'complete') {
-            eventSource.close();
-            streamActive = false;
-            searchInProgress = false;
-            
-            // Update final status
-            const statusElement = document.getElementById("resultsStatus");
-            if (statusElement) {
-              if (matchedRecords.length === 0) {
-                statusElement.textContent = "No records found";
-              } else {
-                statusElement.textContent = `Found ${data.total} record(s)`;
-              }
-            }
-            
-            setStatus(`Search complete: ${data.total} record(s) found`);
-            if (searchButton) searchButton.disabled = false;
-            // Form fields already cleared when search was submitted
-            console.log("[fetchAndRenderSearch] Stream complete, total:", data.total);
-          } else if (data.type === 'error') {
-            eventSource.close();
-            streamActive = false;
-            searchInProgress = false;
-            setStatus(`Error: ${data.message}`, true);
-            const statusElement = document.getElementById("resultsStatus");
-            if (statusElement) {
-              statusElement.textContent = `Error: ${data.message}`;
-            }
-            if (searchButton) searchButton.disabled = false;
-          }
-        } catch (e) {
-          console.error("Error parsing SSE data:", e);
-        }
-      };
-      
-      eventSource.onerror = function(error) {
-        if (streamActive) {
-          console.warn("[fetchAndRenderSearch] SSE error, falling back to regular search:", error);
-          eventSource.close();
-          streamActive = false;
-          // Fallback to regular search
-          fallbackToRegularSearch(url);
-        }
-      };
-      
-      // Set timeout to fallback if SSE doesn't work
-      setTimeout(() => {
-        if (streamActive && matchedRecords.length === 0) {
-          console.warn("[fetchAndRenderSearch] SSE timeout, falling back to regular search");
-          eventSource.close();
-          streamActive = false;
-          fallbackToRegularSearch(url);
-        }
-      }, 5000);
-      
-      return; // Exit early if SSE is working
-    } catch (sseError) {
-      console.warn("[fetchAndRenderSearch] EventSource not supported, using regular search:", sseError);
-      // Fall through to regular search
-      await fallbackToRegularSearch(url);
-    } finally {
-      console.debug("[search] total elapsed ms:", Math.round(performance.now() - t0));
-    }
+    // Use regular /search endpoint (not streaming)
+    await fallbackToRegularSearch(url);
+    
+    console.debug("[search] total elapsed ms:", Math.round(performance.now() - t0));
   }
 
   function pick_id_from_record(rec) {
