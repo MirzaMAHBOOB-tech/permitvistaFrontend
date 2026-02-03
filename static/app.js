@@ -804,12 +804,8 @@ window.initAutocomplete = function() {
           streetDir
         });
         
-        // Add structured address parts to search params if available
-        if (streetNumber) params.append("street_number_q", streetNumber);
-        if (streetName) params.append("street_name_q", streetName);
-        if (streetType) params.append("street_type_q", streetType);
-        if (streetDir) params.append("street_dir_q", streetDir);
-        if (zip) params.append("zip_q", zip);
+        // Note: Removed street_number_q, street_name_q, street_type_q, street_dir_q, zip_q
+        // Shovels API only needs the address string, not individual components
 
         const url = `${API_BASE}/search?${params.toString()}`;
         console.log("[search] url:", url);
@@ -893,11 +889,8 @@ window.initAutocomplete = function() {
             }
           }
           
-          if (streetNumber) params.append("street_number_q", streetNumber);
-          if (streetName) params.append("street_name_q", streetName);
-          if (streetType) params.append("street_type_q", streetType);
-          if (streetDir) params.append("street_dir_q", streetDir);
-          if (zip) params.append("zip_q", zip);
+          // Note: Removed street_number_q, street_name_q, street_type_q, street_dir_q, zip_q
+          // Shovels API only needs the address string, not individual components
 
           const url = `${API_BASE}/search?${params.toString()}`;
           console.log("[button] Starting search with URL:", url);
