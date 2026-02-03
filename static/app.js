@@ -385,6 +385,7 @@ window.initAutocomplete = function() {
         }
         
         // Convert results to matchedRecords format
+        // Store full record object for PDF generation (especially for Shovels API records)
         matchedRecords = results.map(rec => {
           const recId = rec.record_id || (() => {
             const candidates = ["PermitNumber", "PermitNum", "_id", "ID", "OBJECTID", "FID", "ApplicationNumber"];
@@ -396,7 +397,11 @@ window.initAutocomplete = function() {
             return "unknown";
           })();
           
+          // Store full record object, but also add convenience fields for display
           return {
+            // Full original record (needed for PDF generation, especially Shovels API)
+            ...rec,
+            // Convenience fields for display/access
             record_id: recId,
             permit_number: rec.permit_number || rec.PermitNumber || rec.PermitNum || recId,
             address: rec.address || rec.SearchAddress || rec.OriginalAddress1 || rec.AddressDescription || rec.Address || "Address not available",
@@ -552,9 +557,12 @@ window.initAutocomplete = function() {
     setStatus("Generating PDF...");
     
     try {
+      // Send full record object to backend (especially important for Shovels API records)
+      // Backend will use this directly instead of re-querying the database/API
       const requestBody = {
         record_id: record.record_id,
-        permit_number: record.permit_number
+        permit_number: record.permit_number,
+        record: record  // Send full record object - backend will use this if provided
       };
       
       console.log("[selectRecordForPDF] Request body:", requestBody);
@@ -565,12 +573,7 @@ window.initAutocomplete = function() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          record_id: record.record_id,
-          permit_number: record.permit_number,
-          table: record.table,
-          address: record.address // Include address for Shovels API lookups
-      })
+        body: JSON.stringify(requestBody)
       });
       
       console.log("[selectRecordForPDF] Response status:", response.status);
