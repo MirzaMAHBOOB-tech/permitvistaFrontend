@@ -211,6 +211,7 @@ window.initAutocomplete = function() {
     // Get all form elements first
     const addressInput = document.getElementById("addressInput");
     const cityInput = document.getElementById("cityInput");
+    const unitInput = document.getElementById("unitInput");
     const permitInput = document.getElementById("permitInput");
     const dateFrom = document.getElementById("dateFrom");
     const dateTo = document.getElementById("dateTo");
@@ -237,6 +238,10 @@ window.initAutocomplete = function() {
     if (cityInput) {
       cityInput.value = "";
       console.log("[emptyAllFields] City cleared, value:", cityInput.value);
+    }
+    if (unitInput) {
+      unitInput.value = "";
+      console.log("[emptyAllFields] Unit cleared, value:", unitInput.value);
     }
     if (permitInput) {
       permitInput.value = "";
@@ -303,8 +308,71 @@ window.initAutocomplete = function() {
   }
 
   // Store matched records
-  let matchedRecords = [];
+  let matchedRecords = []; // legacy: now treated as "all records"
+  let allRecords = [];
+  let unitFilteredRecords = [];
+  let displayedRecords = [];
+  let activeUnitNumber = "";
+  let showAllBuildingPermits = false;
   let searchInProgress = false;
+
+  function normalizeUnitNumber(raw) {
+    return String(raw || "").trim();
+  }
+
+  function matchesUnit(description, unitNumber) {
+    const desc = String(description || "");
+    const unit = String(unitNumber || "").trim();
+    if (!desc || !unit) return false;
+    const safeUnit = unit.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // escape regex
+
+    const patterns = [
+      `unit\\s*no\\.?\\s*:??\\s*${safeUnit}\\b`,   // Unit no.: 426, Unit no 426
+      `unit\\s*#?\\s*:??\\s*${safeUnit}\\b`,       // Unit 426, Unit:426, Unit #426
+      `#\\s*${safeUnit}\\b`,                       // #426
+      `apt\\.?\\s*${safeUnit}\\b`,                 // apt 426, apt. 426
+      `apartment\\s*${safeUnit}\\b`,               // apartment 426
+    ];
+
+    const regex = new RegExp(patterns.join("|"), "i");
+    return regex.test(desc);
+  }
+
+  function getRecordDescription(rec) {
+    return (
+      rec.work_description ||
+      rec.WorkDescription ||
+      rec.ProjectDescription ||
+      rec.ProjectName ||
+      rec.Description ||
+      rec["Desc1-Desc10"] ||
+      rec.WorkType ||
+      ""
+    );
+  }
+
+  function applyUnitFilter() {
+    const unitInput = document.getElementById("unitInput");
+    activeUnitNumber = normalizeUnitNumber(unitInput ? unitInput.value : "");
+
+    unitFilteredRecords = [];
+    if (activeUnitNumber) {
+      unitFilteredRecords = allRecords.filter((r) => matchesUnit(getRecordDescription(r), activeUnitNumber));
+    }
+
+    // Decide which list to display
+    if (!activeUnitNumber) {
+      displayedRecords = allRecords.slice();
+      showAllBuildingPermits = false;
+    } else if (showAllBuildingPermits) {
+      displayedRecords = allRecords.slice();
+    } else if (unitFilteredRecords.length > 0) {
+      displayedRecords = unitFilteredRecords.slice();
+    } else {
+      // Edge case: no matches -> show all, but show message in UI
+      displayedRecords = allRecords.slice();
+    }
+  }
 
   async function fetchAndRenderSearch(url) {
     console.log("[fetchAndRenderSearch] Starting search with URL:", url);
@@ -319,6 +387,10 @@ window.initAutocomplete = function() {
     
     // Reset previous results
     matchedRecords = [];
+    allRecords = [];
+    unitFilteredRecords = [];
+    displayedRecords = [];
+    showAllBuildingPermits = false;
     searchInProgress = true;
     
     setStatus("Searching...");
@@ -386,7 +458,7 @@ window.initAutocomplete = function() {
         
         // Convert results to matchedRecords format
         // Store full record object for PDF generation (especially for Shovels API records)
-        matchedRecords = results.map(rec => {
+        allRecords = results.map(rec => {
           const recId = rec.record_id || (() => {
             const candidates = ["PermitNumber", "PermitNum", "_id", "ID", "OBJECTID", "FID", "ApplicationNumber"];
             for (const candidate of candidates) {
@@ -412,6 +484,11 @@ window.initAutocomplete = function() {
             applied_date: rec.applied_date || rec.AppliedDate || rec.ApplicationDate || ""
           };
         });
+
+        matchedRecords = allRecords; // keep legacy reference
+
+        // Apply unit filter (client-side)
+        applyUnitFilter();
         
         // Update display with all results
         updateResultsDisplay();
@@ -419,15 +496,16 @@ window.initAutocomplete = function() {
         // Update status message in results card
         const statusElement = document.getElementById("resultsStatus");
         if (statusElement) {
-          if (matchedRecords.length === 0) {
+          if (displayedRecords.length === 0) {
             statusElement.textContent = "No records found";
           } else {
-            statusElement.textContent = `Found ${matchedRecords.length} record(s)`;
+            // Header is updated in updateResultsDisplay
+            statusElement.textContent = `Found ${displayedRecords.length} record(s)`;
           }
         }
         
         searchInProgress = false;
-        setStatus(`Search complete: ${matchedRecords.length} record(s) found`);
+        setStatus(`Search complete: ${displayedRecords.length} record(s) found`);
         if (searchButton) searchButton.disabled = false;
         // Form fields already cleared when search was submitted
         
@@ -460,7 +538,10 @@ window.initAutocomplete = function() {
   }
 
   function updateResultsDisplay() {
-    console.log("[updateResultsDisplay] Updating display with", matchedRecords.length, "records");
+    // Re-apply filter before rendering (handles toggle changes)
+    applyUnitFilter();
+
+    console.log("[updateResultsDisplay] Updating display with", displayedRecords.length, "records (all:", allRecords.length, ", unit:", unitFilteredRecords.length, ")");
     const cardsContainer = document.getElementById("resultsCards");
     const countElement = document.getElementById("recordCount");
     const statusElement = document.getElementById("resultsStatus");
@@ -472,20 +553,64 @@ window.initAutocomplete = function() {
     
     // Update status message
     if (statusElement) {
-      if (matchedRecords.length === 0) {
+      const unitActive = !!activeUnitNumber;
+      const noUnitMatches = unitActive && unitFilteredRecords.length === 0 && allRecords.length > 0;
+
+      if (displayedRecords.length === 0) {
         statusElement.textContent = "Searching...";
+      } else if (unitActive && !showAllBuildingPermits && unitFilteredRecords.length > 0) {
+        statusElement.textContent = `Showing ${displayedRecords.length} permit(s) for Unit ${activeUnitNumber}`;
+      } else if (unitActive && showAllBuildingPermits) {
+        statusElement.textContent = `Showing all ${displayedRecords.length} building permit(s) (Unit ${activeUnitNumber} filter off)`;
+      } else if (noUnitMatches) {
+        statusElement.textContent = `No permits found for Unit ${activeUnitNumber}. Showing all ${displayedRecords.length} building permit(s)`;
       } else {
-        statusElement.textContent = `Found ${matchedRecords.length} record(s)`;
+        statusElement.textContent = `Found ${displayedRecords.length} record(s)`;
       }
     }
     
     // Update count (hidden element for reference)
     if (countElement) {
-      countElement.textContent = matchedRecords.length;
+      countElement.textContent = displayedRecords.length;
+    }
+
+    // Inject toggle UI if unit is active
+    const header = document.getElementById("resultsHeader");
+    if (header) {
+      const existing = document.getElementById("unitFilterControls");
+      if (existing) existing.remove();
+
+      if (activeUnitNumber) {
+        const controls = document.createElement("div");
+        controls.id = "unitFilterControls";
+        controls.style.cssText = "margin-top:10px; font-size:12px; color:#374151;";
+        const unitCount = unitFilteredRecords.length;
+        const totalCount = allRecords.length;
+        const canToggle = totalCount > 0;
+        controls.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;">
+            <span style="font-weight:600;">Unit filter:</span>
+            <span>Unit ${safeText(activeUnitNumber)} matched ${unitCount} / ${totalCount}</span>
+            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none;">
+              <input id="showAllPermitsToggle" type="checkbox" ${showAllBuildingPermits ? "checked" : ""} ${canToggle ? "" : "disabled"} />
+              Show all building permits
+            </label>
+          </div>
+        `;
+        header.appendChild(controls);
+
+        const toggle = document.getElementById("showAllPermitsToggle");
+        if (toggle) {
+          toggle.addEventListener("change", () => {
+            showAllBuildingPermits = !!toggle.checked;
+            updateResultsDisplay();
+          });
+        }
+      }
     }
     
-    // Render all cards
-    cardsContainer.innerHTML = matchedRecords.map((record, index) => {
+    // Render displayed cards
+    cardsContainer.innerHTML = displayedRecords.map((record, index) => {
       const address = record.address || "Address not available";
       const city = record.city ? `, ${record.city}` : "";
       const zip = record.zip ? ` ${record.zip}` : "";
@@ -547,7 +672,8 @@ window.initAutocomplete = function() {
   }
 
   window.selectRecordForPDF = async function selectRecordForPDF(index) {
-    const record = matchedRecords[index];
+    // use displayed list so PDF respects unit filtering view
+    const record = displayedRecords[index];
     if (!record) {
       console.error("[selectRecordForPDF] Record not found at index", index);
       return;
@@ -562,7 +688,8 @@ window.initAutocomplete = function() {
       const requestBody = {
         record_id: record.record_id,
         permit_number: record.permit_number,
-        record: record  // Send full record object - backend will use this if provided
+        record: record,  // Send full record object - backend will use this if provided
+        unit_number: activeUnitNumber || ""  // optional context for certificate
       };
       
       console.log("[selectRecordForPDF] Request body:", requestBody);
