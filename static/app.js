@@ -313,7 +313,6 @@ window.initAutocomplete = function() {
   let unitFilteredRecords = [];
   let displayedRecords = [];
   let activeUnitNumber = "";
-  let showAllBuildingPermits = false;
   let searchInProgress = false;
 
   function normalizeUnitNumber(raw) {
@@ -363,14 +362,11 @@ window.initAutocomplete = function() {
     // Decide which list to display
     if (!activeUnitNumber) {
       displayedRecords = allRecords.slice();
-      showAllBuildingPermits = false;
-    } else if (showAllBuildingPermits) {
-      displayedRecords = allRecords.slice();
     } else if (unitFilteredRecords.length > 0) {
       displayedRecords = unitFilteredRecords.slice();
     } else {
-      // Edge case: no matches -> show all, but show message in UI
-      displayedRecords = allRecords.slice();
+      // Unit number provided but no matches — strict filter: show nothing
+      displayedRecords = [];
     }
   }
 
@@ -390,7 +386,6 @@ window.initAutocomplete = function() {
     allRecords = [];
     unitFilteredRecords = [];
     displayedRecords = [];
-    showAllBuildingPermits = false;
     searchInProgress = true;
     
     setStatus("Searching...");
@@ -493,19 +488,15 @@ window.initAutocomplete = function() {
         // Update display with all results
         updateResultsDisplay();
         
-        // Update status message in results card
-        const statusElement = document.getElementById("resultsStatus");
-        if (statusElement) {
-          if (displayedRecords.length === 0) {
-            statusElement.textContent = "No records found";
-          } else {
-            // Header is updated in updateResultsDisplay
-            statusElement.textContent = `Found ${displayedRecords.length} record(s)`;
-          }
-        }
-        
+        // Status is already set by updateResultsDisplay(), but handle the unit-filtered-to-zero case for the bottom status bar
         searchInProgress = false;
-        setStatus(`Search complete: ${displayedRecords.length} record(s) found`);
+        if (activeUnitNumber && displayedRecords.length === 0 && allRecords.length > 0) {
+          setStatus(`No records found for Unit ${activeUnitNumber} (${allRecords.length} total permits at this address)`, true);
+        } else if (displayedRecords.length === 0) {
+          setStatus("No records found.", true);
+        } else {
+          setStatus(`Search complete: ${displayedRecords.length} record(s) found`);
+        }
         if (searchButton) searchButton.disabled = false;
         // Form fields already cleared when search was submitted
         
@@ -556,16 +547,18 @@ window.initAutocomplete = function() {
       const unitActive = !!activeUnitNumber;
       const noUnitMatches = unitActive && unitFilteredRecords.length === 0 && allRecords.length > 0;
 
-      if (displayedRecords.length === 0) {
+      if (noUnitMatches) {
+        statusElement.textContent = `No records found for Unit ${activeUnitNumber}`;
+        statusElement.style.color = "#dc2626";
+      } else if (displayedRecords.length === 0) {
         statusElement.textContent = "Searching...";
-      } else if (unitActive && !showAllBuildingPermits && unitFilteredRecords.length > 0) {
-        statusElement.textContent = `Showing ${displayedRecords.length} permit(s) for Unit ${activeUnitNumber}`;
-      } else if (unitActive && showAllBuildingPermits) {
-        statusElement.textContent = `Showing all ${displayedRecords.length} building permit(s) (Unit ${activeUnitNumber} filter off)`;
-      } else if (noUnitMatches) {
-        statusElement.textContent = `No permits found for Unit ${activeUnitNumber}. Showing all ${displayedRecords.length} building permit(s)`;
+        statusElement.style.color = "#20334e";
+      } else if (unitActive && unitFilteredRecords.length > 0) {
+        statusElement.textContent = `Found ${displayedRecords.length} record(s) for Unit ${activeUnitNumber}`;
+        statusElement.style.color = "#20334e";
       } else {
         statusElement.textContent = `Found ${displayedRecords.length} record(s)`;
+        statusElement.style.color = "#20334e";
       }
     }
     
@@ -574,7 +567,7 @@ window.initAutocomplete = function() {
       countElement.textContent = displayedRecords.length;
     }
 
-    // Inject toggle UI if unit is active
+    // Show unit filter info if unit is active
     const header = document.getElementById("resultsHeader");
     if (header) {
       const existing = document.getElementById("unitFilterControls");
@@ -583,29 +576,16 @@ window.initAutocomplete = function() {
       if (activeUnitNumber) {
         const controls = document.createElement("div");
         controls.id = "unitFilterControls";
-        controls.style.cssText = "margin-top:10px; font-size:12px; color:#374151;";
+        controls.style.cssText = "margin-top:10px; font-size:13px; color:#374151;";
         const unitCount = unitFilteredRecords.length;
         const totalCount = allRecords.length;
-        const canToggle = totalCount > 0;
         controls.innerHTML = `
-          <div style="display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;">
-            <span style="font-weight:600;">Unit filter:</span>
-            <span>Unit ${safeText(activeUnitNumber)} matched ${unitCount} / ${totalCount}</span>
-            <label style="display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none;">
-              <input id="showAllPermitsToggle" type="checkbox" ${showAllBuildingPermits ? "checked" : ""} ${canToggle ? "" : "disabled"} />
-              Show all building permits
-            </label>
+          <div style="display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-weight:600;">Unit ${safeText(activeUnitNumber)}:</span>
+            <span>${unitCount} of ${totalCount} total permit(s) matched</span>
           </div>
         `;
         header.appendChild(controls);
-
-        const toggle = document.getElementById("showAllPermitsToggle");
-        if (toggle) {
-          toggle.addEventListener("change", () => {
-            showAllBuildingPermits = !!toggle.checked;
-            updateResultsDisplay();
-          });
-        }
       }
     }
     
