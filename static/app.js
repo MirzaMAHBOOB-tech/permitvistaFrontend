@@ -351,8 +351,8 @@ window.initAutocomplete = function() {
   }
 
   function applyUnitFilter() {
-    const unitInput = document.getElementById("unitInput");
-    activeUnitNumber = normalizeUnitNumber(unitInput ? unitInput.value : "");
+    // activeUnitNumber is set before clearFormFields() in the search handlers
+    // so we do NOT re-read from the DOM here (the input is already cleared by then)
 
     unitFilteredRecords = [];
     if (activeUnitNumber) {
@@ -921,8 +921,12 @@ window.initAutocomplete = function() {
         console.log("[search] url:", url);
         console.log("[search] Starting search - page should NOT navigate");
         
+        // Capture unit number BEFORE clearing fields so it survives the clear
+        const unitInput = document.getElementById("unitInput");
+        activeUnitNumber = normalizeUnitNumber(unitInput ? unitInput.value : "");
+        console.log("[search] Unit number captured:", activeUnitNumber || "(none)");
+        
         // Clear form fields immediately after values are read and URL is built
-        // Clear synchronously so user sees empty fields right away
         clearFormFields();
         
         try {
@@ -1005,8 +1009,12 @@ window.initAutocomplete = function() {
           const url = `${API_BASE}/search?${params.toString()}`;
           console.log("[button] Starting search with URL:", url);
           
+          // Capture unit number BEFORE clearing fields so it survives the clear
+          const unitEl = document.getElementById("unitInput");
+          activeUnitNumber = normalizeUnitNumber(unitEl ? unitEl.value : "");
+          console.log("[button] Unit number captured:", activeUnitNumber || "(none)");
+          
           // Clear form fields immediately after values are read and URL is built
-          // Clear synchronously so user sees empty fields right away
           clearFormFields();
           
           try {
