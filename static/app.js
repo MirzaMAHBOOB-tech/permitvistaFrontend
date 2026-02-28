@@ -651,63 +651,121 @@ window.initAutocomplete = function() {
     }).join("");
   }
 
+  // ---------- Pricing Modal + Stripe Checkout ----------
+  let selectedRecordIndex = null;
+
+  function showPricingModal(index) {
+    selectedRecordIndex = index;
+    const record = displayedRecords[index];
+    if (!record) return;
+
+    let existing = document.getElementById("pricingModal");
+    if (existing) existing.remove();
+
+    const permitNum = record.permit_number || record.record_id || "N/A";
+    const address = record.address || "Address not available";
+
+    const modal = document.createElement("div");
+    modal.id = "pricingModal";
+    modal.style.cssText = "position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);";
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:14px;max-width:520px;width:92%;padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.25);position:relative;">
+        <button onclick="window.closePricingModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280;">&times;</button>
+        <h3 style="margin:0 0 6px 0;font-size:20px;color:#111827;font-weight:700;text-align:center;">Select Your Certificate</h3>
+        <p style="margin:0 0 20px 0;font-size:13px;color:#6b7280;text-align:center;">${safeText(permitNum)} &mdash; ${safeText(address).substring(0, 60)}</p>
+        
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div onclick="window.startCheckout('standard')" style="border:2px solid #e5e7eb;border-radius:10px;padding:16px 20px;cursor:pointer;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center;" onmouseover="this.style.borderColor='#2563eb';this.style.background='#f0f7ff'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff'">
+            <div>
+              <div style="font-weight:700;font-size:16px;color:#111827;">Standard Certificate</div>
+              <div style="font-size:13px;color:#6b7280;margin-top:2px;">Official building permit certificate</div>
+            </div>
+            <div style="font-weight:700;font-size:20px;color:#2563eb;">$75</div>
+          </div>
+
+          <div onclick="window.startCheckout('rush')" style="border:2px solid #f59e0b;border-radius:10px;padding:16px 20px;cursor:pointer;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center;background:#fffbeb;" onmouseover="this.style.borderColor='#d97706';this.style.background='#fef3c7'" onmouseout="this.style.borderColor='#f59e0b';this.style.background='#fffbeb'">
+            <div>
+              <div style="font-weight:700;font-size:16px;color:#111827;">Rush Certificate <span style="background:#f59e0b;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px;">SAME DAY</span></div>
+              <div style="font-size:13px;color:#6b7280;margin-top:2px;">Priority same-day processing</div>
+            </div>
+            <div style="font-weight:700;font-size:20px;color:#d97706;">$125</div>
+          </div>
+
+          <div onclick="window.startCheckout('premium')" style="border:2px solid #7c3aed;border-radius:10px;padding:16px 20px;cursor:pointer;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center;background:#f5f3ff;" onmouseover="this.style.borderColor='#6d28d9';this.style.background='#ede9fe'" onmouseout="this.style.borderColor='#7c3aed';this.style.background='#f5f3ff'">
+            <div>
+              <div style="font-weight:700;font-size:16px;color:#111827;">Premium Commercial <span style="background:#7c3aed;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px;">FULL DETAIL</span></div>
+              <div style="font-size:13px;color:#6b7280;margin-top:2px;">Commercial property with comprehensive detail</div>
+            </div>
+            <div style="font-weight:700;font-size:20px;color:#7c3aed;">$150</div>
+          </div>
+        </div>
+
+        <p style="margin:18px 0 0 0;font-size:11px;color:#9ca3af;text-align:center;">Secure payment powered by Stripe. SSL encrypted.</p>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener("click", (e) => { if (e.target === modal) window.closePricingModal(); });
+  }
+
+  window.closePricingModal = function() {
+    const modal = document.getElementById("pricingModal");
+    if (modal) modal.remove();
+    selectedRecordIndex = null;
+  };
+
+  window.startCheckout = async function startCheckout(tier) {
+    if (selectedRecordIndex === null) return;
+    const record = displayedRecords[selectedRecordIndex];
+    if (!record) return;
+
+    const modal = document.getElementById("pricingModal");
+    if (modal) {
+      const btns = modal.querySelectorAll("[onclick]");
+      btns.forEach(b => { b.style.opacity = "0.5"; b.style.pointerEvents = "none"; });
+    }
+    setStatus("Redirecting to payment...");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/create-checkout-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          record_data: record,
+          pricing_tier: tier,
+          unit_number: activeUnitNumber || "",
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Server returned ${response.status}: ${errText}`);
+      }
+
+      const data = await response.json();
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
+    } catch (error) {
+      console.error("[startCheckout] Error:", error);
+      setStatus(`Payment error: ${error.message}`, true);
+      alert(`Payment error: ${error.message}`);
+      if (modal) {
+        const btns = modal.querySelectorAll("[onclick]");
+        btns.forEach(b => { b.style.opacity = "1"; b.style.pointerEvents = "auto"; });
+      }
+    }
+  };
+
   window.selectRecordForPDF = async function selectRecordForPDF(index) {
-    // use displayed list so PDF respects unit filtering view
     const record = displayedRecords[index];
     if (!record) {
       console.error("[selectRecordForPDF] Record not found at index", index);
       return;
     }
-    
-    console.log("[selectRecordForPDF] Generating PDF for record:", record);
-    setStatus("Generating PDF...");
-    
-    try {
-      // Send full record object to backend (especially important for Shovels API records)
-      // Backend will use this directly instead of re-querying the database/API
-      const requestBody = {
-        record_id: record.record_id,
-        permit_number: record.permit_number,
-        record: record,  // Send full record object - backend will use this if provided
-        unit_number: activeUnitNumber || ""  // optional context for certificate
-      };
-      
-      console.log("[selectRecordForPDF] Request body:", requestBody);
-      console.log("[selectRecordForPDF] API URL:", `${API_BASE_URL}/generate-pdf`);
-      
-      const response = await fetch(`${API_BASE_URL}/generate-pdf`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-      
-      console.log("[selectRecordForPDF] Response status:", response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[selectRecordForPDF] Error response:", errorText);
-        throw new Error(`Server returned ${response.status}: ${errorText}`);
-      }
-      
-      const data = await response.json();
-      console.log("[selectRecordForPDF] Response data:", data);
-      
-      if (data.success && data.view_url) {
-        setStatus("PDF generated successfully!");
-        // Open PDF in new tab - ensure full URL
-        const fullUrl = data.view_url.startsWith('http') ? data.view_url : `${API_BASE_URL}${data.view_url}`;
-        console.log("[selectRecordForPDF] Opening PDF URL:", fullUrl);
-        window.open(fullUrl, '_blank');
-      } else {
-        throw new Error(data.error || data.detail || "PDF generation failed");
-      }
-    } catch (error) {
-      console.error("[selectRecordForPDF] Error:", error);
-      setStatus(`Error generating PDF: ${error.message}`, true);
-      alert(`Error generating PDF: ${error.message}`);
-    }
+    console.log("[selectRecordForPDF] Opening pricing modal for record:", record.permit_number || record.record_id);
+    showPricingModal(index);
   }
   
   // Close results modal and empty all fields
@@ -791,7 +849,14 @@ window.initAutocomplete = function() {
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    setStatus("Ready.");
+    // Handle payment cancel redirect
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("payment") === "cancelled") {
+      setStatus("Payment cancelled. You can try again anytime.");
+      window.history.replaceState({}, "", window.location.pathname);
+    } else {
+      setStatus("Ready.");
+    }
     const searchForm = document.getElementById("searchForm");
     const searchButton = document.getElementById("searchButton") || document.getElementById("searchButton_small");
     const cityInput = document.getElementById("cityInput");
