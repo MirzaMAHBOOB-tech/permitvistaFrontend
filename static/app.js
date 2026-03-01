@@ -764,8 +764,46 @@ window.initAutocomplete = function() {
       console.error("[selectRecordForPDF] Record not found at index", index);
       return;
     }
-    console.log("[selectRecordForPDF] Opening pricing modal for record:", record.permit_number || record.record_id);
-    showPricingModal(index);
+
+    // --- PAYMENT BYPASSED FOR TESTING ---
+    // Payment flow is temporarily disabled. Instead of showPricingModal(index),
+    // we directly call /generate-pdf to produce the certificate without payment.
+    // To re-enable payment, replace this block with: showPricingModal(index);
+    const permitId = chooseIdFromRecord(record);
+    console.log("[selectRecordForPDF] Generating PDF directly (payment bypassed) for:", permitId);
+    setStatus("Generating PDF...");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/generate-pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          record_id: permitId,
+          record: record,
+          unit_number: activeUnitNumber || "",
+          table: record.table || record._source_table || "",
+          address: record.address || record.Address || record.PermitAddress || "",
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Server returned ${response.status}: ${errText}`);
+      }
+
+      const data = await response.json();
+      if (data.success && data.view_url) {
+        const viewUrl = makeAbsoluteUrl(data.view_url);
+        setStatus("PDF generated! Opening...");
+        window.open(viewUrl, "_blank");
+      } else {
+        throw new Error(data.detail || "PDF generation failed");
+      }
+    } catch (error) {
+      console.error("[selectRecordForPDF] Error:", error);
+      setStatus(`PDF generation error: ${error.message}`, true);
+      alert(`PDF generation error: ${error.message}`);
+    }
   }
   
   // Close results modal and empty all fields
