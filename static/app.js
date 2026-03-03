@@ -559,7 +559,7 @@ window.initAutocomplete = function() {
       } catch (err) {
         searchInProgress = false;
         const em = (err && err.message) ? err.message : String(err);
-        if (/Server returned 5\\d\\d/.test(em)) {
+        if (/Server returned 5\d\d/.test(em)) {
           showNoPermitDataFoundMessage();
         } else {
           setStatus(`Search error: ${em}`, true);
