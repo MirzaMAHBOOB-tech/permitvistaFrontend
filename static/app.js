@@ -154,7 +154,15 @@ window.initAutocomplete = function() {
       console.warn("addressInput not found"); 
       return; 
     }
-    const options = { types: ["address"] };
+    const options = {
+      componentRestrictions: { country: "us" },
+      types: ["address"],
+      bounds: new window.google.maps.LatLngBounds(
+        new window.google.maps.LatLng(24.396308, -87.634896),  // SW Florida
+        new window.google.maps.LatLng(31.000968, -79.974306)   // NE Florida
+      ),
+      strictBounds: true
+    };
     const autocomplete = new window.google.maps.places.Autocomplete(addrInput, options);
     autocomplete.addListener("place_changed", () => {
       const place = autocomplete.getPlace();
@@ -410,7 +418,55 @@ window.initAutocomplete = function() {
     if (searchButton) searchButton.disabled = true;
     
     const t0 = performance.now();
-    
+
+    function showNoPermitDataFoundMessage() {
+      const resultsContent = document.getElementById("resultsContent");
+      if (!resultsContent) {
+        setStatus("No Permit Data Found.", true);
+        return;
+      }
+      resultsContent.innerHTML = `
+        <div style="width:100%; padding:20px; box-sizing:border-box; text-align:left;">
+          <div style="text-align:center; margin-bottom:16px;">
+            <div style="font-size:28px; margin-bottom:8px;">⚠️</div>
+            <h3 style="margin:0; color:#b45309; font-size:20px; font-weight:700;">No Permit Data Found</h3>
+          </div>
+          <p style="margin:8px 0 4px 0; font-size:14px; color:#374151;">
+            We don't have permit records for this address.
+          </p>
+          <p style="margin:8px 0 4px 0; font-size:13px; color:#4b5563;">
+            This could mean:
+          </p>
+          <ul style="margin:4px 0 12px 20px; padding:0; font-size:13px; color:#4b5563;">
+            <li>No permits have been filed for this property</li>
+            <li>The jurisdiction isn't in our system yet</li>
+          </ul>
+          <p style="margin:8px 0 16px 0; font-size:13px; color:#4b5563;">
+            Try searching a different Florida address.
+          </p>
+          <div style="text-align:center;">
+            <button id="noDataSearchAgainBtn"
+                    style="display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:8px 16px; border-radius:999px; border:1px solid #d1d5db; background:#111827; color:#f9fafb; font-size:13px; font-weight:600; cursor:pointer;">
+              Search Again
+            </button>
+          </div>
+        </div>
+      `;
+      const statusElement = document.getElementById("resultsStatus");
+      if (statusElement) {
+        statusElement.textContent = "No Permit Data Found";
+      }
+      setStatus("No Permit Data Found.", true);
+      const againBtn = document.getElementById("noDataSearchAgainBtn");
+      if (againBtn) {
+        againBtn.addEventListener("click", () => {
+          resultsDiv.style.display = "none";
+          const addrInput = document.getElementById("addressInput");
+          if (addrInput) addrInput.focus();
+        });
+      }
+    }
+
     // Fallback function for regular search
     async function fallbackToRegularSearch(searchUrl) {
       try {
@@ -503,10 +559,14 @@ window.initAutocomplete = function() {
       } catch (err) {
         searchInProgress = false;
         const em = (err && err.message) ? err.message : String(err);
-        setStatus(`Search error: ${em}`, true);
-        const statusElement = document.getElementById("resultsStatus");
-        if (statusElement) {
-          statusElement.textContent = `Error: ${em}`;
+        if (/Server returned 5\\d\\d/.test(em)) {
+          showNoPermitDataFoundMessage();
+        } else {
+          setStatus(`Search error: ${em}`, true);
+          const statusElement = document.getElementById("resultsStatus");
+          if (statusElement) {
+            statusElement.textContent = `Error: ${em}`;
+          }
         }
         if (searchButton) searchButton.disabled = false;
       }
