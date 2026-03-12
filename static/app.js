@@ -322,6 +322,12 @@ window.initAutocomplete = function() {
   let displayedRecords = [];
   let activeUnitNumber = "";
   let searchInProgress = false;
+  let subscriptionState = {
+    email: "",
+    isSubscribed: false,
+    subscriptionStatus: "none",
+    canManageSubscription: false,
+  };
 
   function normalizeUnitNumber(raw) {
     return String(raw || "").trim();
@@ -649,6 +655,8 @@ window.initAutocomplete = function() {
       }
     }
     
+    const isSubscribed = subscriptionState.isSubscribed;
+
     // Render displayed cards
     cardsContainer.innerHTML = displayedRecords.map((record, index) => {
       const address = record.address || "Address not available";
@@ -694,16 +702,28 @@ window.initAutocomplete = function() {
               </div>
             </div>
             <div style="display: flex; align-items: center;">
-              <button style="
-                padding: 8px 16px;
-                background: #2563eb;
-                color: #fff;
-                border: none;
-                border-radius: 8px;
-                font-weight: 600;
-                font-size: 14px;
-                cursor: pointer;
-              ">Generate PDF</button>
+              <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
+                <button style="
+                  padding: 8px 16px;
+                  background: #2563eb;
+                  color: #fff;
+                  border: none;
+                  border-radius: 8px;
+                  font-weight: 600;
+                  font-size: 14px;
+                  cursor: pointer;
+                ">${isSubscribed ? "Generate PDF" : "Generate PDF - $2.99"}</button>
+                ${isSubscribed ? "" : `<button onclick="window.startSubscriptionCheckout(event)" style="
+                  padding: 7px 12px;
+                  background: #047857;
+                  color: #fff;
+                  border: none;
+                  border-radius: 8px;
+                  font-weight: 600;
+                  font-size: 12px;
+                  cursor: pointer;
+                ">Subscribe for Unlimited - $29.99/mo</button>`}
+              </div>
             </div>
           </div>
         </div>
@@ -711,89 +731,49 @@ window.initAutocomplete = function() {
     }).join("");
   }
 
-  // ---------- Pricing Modal + Stripe Checkout ----------
-  let selectedRecordIndex = null;
+  // ---------- Stripe Checkout + Subscription ----------
+  async function startOneTimeCheckout(record) {
+    setStatus("Redirecting to Stripe checkout for $2.99...");
+    const response = await fetch(`${API_BASE_URL}/create-checkout-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        record_data: record,
+        unit_number: activeUnitNumber || "",
+        address: record.address || record.Address || "",
+      }),
+    });
 
-  function showPricingModal(index) {
-    selectedRecordIndex = index;
-    const record = displayedRecords[index];
-    if (!record) return;
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Server returned ${response.status}: ${errText}`);
+    }
 
-    let existing = document.getElementById("pricingModal");
-    if (existing) existing.remove();
-
-    const permitNum = record.permit_number || record.record_id || "N/A";
-    const address = record.address || "Address not available";
-
-    const modal = document.createElement("div");
-    modal.id = "pricingModal";
-    modal.style.cssText = "position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);";
-    modal.innerHTML = `
-      <div style="background:#fff;border-radius:14px;max-width:520px;width:92%;padding:32px 28px;box-shadow:0 20px 60px rgba(0,0,0,0.25);position:relative;">
-        <button onclick="window.closePricingModal()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:#6b7280;">&times;</button>
-        <h3 style="margin:0 0 6px 0;font-size:20px;color:#111827;font-weight:700;text-align:center;">Select Your Certificate</h3>
-        <p style="margin:0 0 20px 0;font-size:13px;color:#6b7280;text-align:center;">${safeText(permitNum)} &mdash; ${safeText(address).substring(0, 60)}</p>
-        
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          <div onclick="window.startCheckout('standard')" style="border:2px solid #e5e7eb;border-radius:10px;padding:16px 20px;cursor:pointer;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center;" onmouseover="this.style.borderColor='#2563eb';this.style.background='#f0f7ff'" onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff'">
-            <div>
-              <div style="font-weight:700;font-size:16px;color:#111827;">Standard Certificate</div>
-              <div style="font-size:13px;color:#6b7280;margin-top:2px;">Official building permit certificate</div>
-            </div>
-            <div style="font-weight:700;font-size:20px;color:#2563eb;">$75</div>
-          </div>
-
-          <div onclick="window.startCheckout('rush')" style="border:2px solid #f59e0b;border-radius:10px;padding:16px 20px;cursor:pointer;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center;background:#fffbeb;" onmouseover="this.style.borderColor='#d97706';this.style.background='#fef3c7'" onmouseout="this.style.borderColor='#f59e0b';this.style.background='#fffbeb'">
-            <div>
-              <div style="font-weight:700;font-size:16px;color:#111827;">Rush Certificate <span style="background:#f59e0b;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px;">SAME DAY</span></div>
-              <div style="font-size:13px;color:#6b7280;margin-top:2px;">Priority same-day processing</div>
-            </div>
-            <div style="font-weight:700;font-size:20px;color:#d97706;">$125</div>
-          </div>
-
-          <div onclick="window.startCheckout('premium')" style="border:2px solid #7c3aed;border-radius:10px;padding:16px 20px;cursor:pointer;transition:all 0.15s;display:flex;justify-content:space-between;align-items:center;background:#f5f3ff;" onmouseover="this.style.borderColor='#6d28d9';this.style.background='#ede9fe'" onmouseout="this.style.borderColor='#7c3aed';this.style.background='#f5f3ff'">
-            <div>
-              <div style="font-weight:700;font-size:16px;color:#111827;">Premium Commercial <span style="background:#7c3aed;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:6px;">FULL DETAIL</span></div>
-              <div style="font-size:13px;color:#6b7280;margin-top:2px;">Commercial property with comprehensive detail</div>
-            </div>
-            <div style="font-weight:700;font-size:20px;color:#7c3aed;">$150</div>
-          </div>
-        </div>
-
-        <p style="margin:18px 0 0 0;font-size:11px;color:#9ca3af;text-align:center;">Secure payment powered by Stripe. SSL encrypted.</p>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    modal.addEventListener("click", (e) => { if (e.target === modal) window.closePricingModal(); });
+    const data = await response.json();
+    if (!data.checkout_url) {
+      throw new Error("No checkout URL returned");
+    }
+    window.location.href = data.checkout_url;
   }
 
-  window.closePricingModal = function() {
-    const modal = document.getElementById("pricingModal");
-    if (modal) modal.remove();
-    selectedRecordIndex = null;
-  };
-
-  window.startCheckout = async function startCheckout(tier) {
-    if (selectedRecordIndex === null) return;
-    const record = displayedRecords[selectedRecordIndex];
-    if (!record) return;
-
-    const modal = document.getElementById("pricingModal");
-    if (modal) {
-      const btns = modal.querySelectorAll("[onclick]");
-      btns.forEach(b => { b.style.opacity = "0.5"; b.style.pointerEvents = "none"; });
+  window.startSubscriptionCheckout = async function startSubscriptionCheckout(evt) {
+    if (evt) {
+      evt.preventDefault();
+      evt.stopPropagation();
     }
-    setStatus("Redirecting to payment...");
 
+    const email = (subscriptionState.email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      alert("Enter your email in the membership bar to subscribe.");
+      return;
+    }
+
+    setStatus("Redirecting to Stripe subscription checkout...");
     try {
-      const response = await fetch(`${API_BASE_URL}/create-checkout-session`, {
+      const response = await fetch(`${API_BASE_URL}/create-subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          record_data: record,
-          pricing_tier: tier,
-          unit_number: activeUnitNumber || "",
-        }),
+        body: JSON.stringify({ email }),
       });
 
       if (!response.ok) {
@@ -802,21 +782,45 @@ window.initAutocomplete = function() {
       }
 
       const data = await response.json();
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-      } else {
-        throw new Error("No checkout URL returned");
-      }
+      if (!data.checkout_url) throw new Error("No checkout URL returned");
+      window.location.href = data.checkout_url;
     } catch (error) {
-      console.error("[startCheckout] Error:", error);
-      setStatus(`Payment error: ${error.message}`, true);
-      alert(`Payment error: ${error.message}`);
-      if (modal) {
-        const btns = modal.querySelectorAll("[onclick]");
-        btns.forEach(b => { b.style.opacity = "1"; b.style.pointerEvents = "auto"; });
-      }
+      console.error("[startSubscriptionCheckout] Error:", error);
+      setStatus(`Subscription error: ${error.message}`, true);
+      alert(`Subscription error: ${error.message}`);
     }
   };
+
+  async function generatePdfWithoutPayment(record) {
+    const permitId = chooseIdFromRecord(record);
+    setStatus("Generating PDF...");
+
+    const response = await fetch(`${API_BASE_URL}/generate-pdf`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        record_id: permitId,
+        record: record,
+        unit_number: activeUnitNumber || "",
+        table: record.table || record._source_table || "",
+        address: record.address || record.Address || record.PermitAddress || "",
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Server returned ${response.status}: ${errText}`);
+    }
+
+    const data = await response.json();
+    if (!data.success || !data.view_url) {
+      throw new Error(data.detail || "PDF generation failed");
+    }
+
+    const viewUrl = makeAbsoluteUrl(data.view_url);
+    setStatus("PDF generated! Opening...");
+    window.open(viewUrl, "_blank");
+  }
 
   window.selectRecordForPDF = async function selectRecordForPDF(index) {
     const record = displayedRecords[index];
@@ -825,44 +829,16 @@ window.initAutocomplete = function() {
       return;
     }
 
-    // --- PAYMENT BYPASSED FOR TESTING ---
-    // Payment flow is temporarily disabled. Instead of showPricingModal(index),
-    // we directly call /generate-pdf to produce the certificate without payment.
-    // To re-enable payment, replace this block with: showPricingModal(index);
-    const permitId = chooseIdFromRecord(record);
-    console.log("[selectRecordForPDF] Generating PDF directly (payment bypassed) for:", permitId);
-    setStatus("Generating PDF...");
-
     try {
-      const response = await fetch(`${API_BASE_URL}/generate-pdf`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          record_id: permitId,
-          record: record,
-          unit_number: activeUnitNumber || "",
-          table: record.table || record._source_table || "",
-          address: record.address || record.Address || record.PermitAddress || "",
-        }),
-      });
-
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Server returned ${response.status}: ${errText}`);
-      }
-
-      const data = await response.json();
-      if (data.success && data.view_url) {
-        const viewUrl = makeAbsoluteUrl(data.view_url);
-        setStatus("PDF generated! Opening...");
-        window.open(viewUrl, "_blank");
+      if (subscriptionState.isSubscribed) {
+        await generatePdfWithoutPayment(record);
       } else {
-        throw new Error(data.detail || "PDF generation failed");
+        await startOneTimeCheckout(record);
       }
     } catch (error) {
       console.error("[selectRecordForPDF] Error:", error);
-      setStatus(`PDF generation error: ${error.message}`, true);
-      alert(`PDF generation error: ${error.message}`);
+      setStatus(`Payment/PDF error: ${error.message}`, true);
+      alert(`Payment/PDF error: ${error.message}`);
     }
   }
   
@@ -946,15 +922,142 @@ window.initAutocomplete = function() {
     }
   }
 
+  function renderMembershipBar() {
+    let bar = document.getElementById("membershipBar");
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "membershipBar";
+      bar.style.cssText = "width:100%;max-width:980px;margin:8px auto 0 auto;padding:10px 14px;border-radius:10px;background:#eef8f2;border:1px solid #cce8d7;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;";
+      const header = document.querySelector(".header");
+      if (header && header.parentNode) {
+        header.parentNode.insertBefore(bar, header.nextSibling);
+      } else {
+        document.body.insertBefore(bar, document.body.firstChild);
+      }
+    }
+
+    const badge = subscriptionState.isSubscribed
+      ? `<span style="background:#065f46;color:#fff;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;">Unlimited Member</span>`
+      : "";
+
+    bar.innerHTML = `
+      <div style="font-size:13px;color:#064e3b;font-weight:700;">PermitVista Membership</div>
+      <input id="memberEmailInput" type="email" placeholder="Enter email for unlimited access" value="${safeText(subscriptionState.email)}" style="padding:8px 10px;border-radius:8px;border:1px solid #9bd0b3;min-width:260px;" />
+      <button id="checkMemberStatusBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#0f766e;color:#fff;font-weight:600;cursor:pointer;">Check Status</button>
+      <button id="subscribeBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#047857;color:#fff;font-weight:700;cursor:pointer;">Subscribe - $29.99/mo</button>
+      <button id="manageSubscriptionBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#1d4ed8;color:#fff;font-weight:600;cursor:pointer;${subscriptionState.canManageSubscription ? "" : "display:none;"}">Manage Subscription</button>
+      <span id="memberIdentity" style="font-size:12px;color:#065f46;">${subscriptionState.email ? `Signed in as ${safeText(subscriptionState.email)}` : ""}</span>
+      ${badge}
+    `;
+
+    const emailInput = document.getElementById("memberEmailInput");
+    const checkBtn = document.getElementById("checkMemberStatusBtn");
+    const subscribeBtn = document.getElementById("subscribeBtn");
+    const manageBtn = document.getElementById("manageSubscriptionBtn");
+
+    if (emailInput) {
+      emailInput.addEventListener("change", () => {
+        subscriptionState.email = emailInput.value.trim().toLowerCase();
+        if (subscriptionState.email) {
+          localStorage.setItem("permitvista_member_email", subscriptionState.email);
+        }
+      });
+    }
+
+    if (checkBtn) {
+      checkBtn.addEventListener("click", async () => {
+        const email = emailInput ? emailInput.value.trim().toLowerCase() : "";
+        if (!email || !email.includes("@")) {
+          alert("Enter a valid email first.");
+          return;
+        }
+        subscriptionState.email = email;
+        localStorage.setItem("permitvista_member_email", email);
+        await refreshSubscriptionStatus();
+      });
+    }
+
+    if (subscribeBtn) {
+      subscribeBtn.addEventListener("click", (evt) => {
+        window.startSubscriptionCheckout(evt);
+      });
+    }
+
+    if (manageBtn) {
+      manageBtn.addEventListener("click", async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/create-customer-portal-session`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: subscriptionState.email }),
+          });
+          if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Server returned ${response.status}: ${errText}`);
+          }
+          const data = await response.json();
+          if (!data.portal_url) throw new Error("No portal URL returned");
+          window.location.href = data.portal_url;
+        } catch (error) {
+          setStatus(`Portal error: ${error.message}`, true);
+          alert(`Portal error: ${error.message}`);
+        }
+      });
+    }
+  }
+
+  async function refreshSubscriptionStatus() {
+    const email = (subscriptionState.email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      subscriptionState.isSubscribed = false;
+      subscriptionState.subscriptionStatus = "none";
+      subscriptionState.canManageSubscription = false;
+      renderMembershipBar();
+      updateResultsDisplay();
+      return;
+    }
+
+    try {
+      const data = await fetchJson(`${API_BASE_URL}/subscription-status?email=${encodeURIComponent(email)}`);
+      subscriptionState.isSubscribed = !!data.is_subscribed;
+      subscriptionState.subscriptionStatus = data.subscription_status || "none";
+      subscriptionState.canManageSubscription = !!data.can_manage_subscription;
+      renderMembershipBar();
+      updateResultsDisplay();
+    } catch (error) {
+      subscriptionState.isSubscribed = false;
+      subscriptionState.canManageSubscription = false;
+      setStatus(`Subscription status error: ${error.message}`, true);
+      renderMembershipBar();
+      updateResultsDisplay();
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
-    // Handle payment cancel redirect
     const urlParams = new URLSearchParams(window.location.search);
+    const storedEmail = localStorage.getItem("permitvista_member_email") || "";
+    const successEmail = (urlParams.get("email") || "").trim().toLowerCase();
+    subscriptionState.email = successEmail || storedEmail;
+
     if (urlParams.get("payment") === "cancelled") {
       setStatus("Payment cancelled. You can try again anytime.");
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (urlParams.get("subscription") === "cancelled") {
+      setStatus("Subscription checkout cancelled.");
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (urlParams.get("subscription") === "success") {
+      if (successEmail) {
+        localStorage.setItem("permitvista_member_email", successEmail);
+      }
+      setStatus("Subscription activated. Unlimited PDFs are now enabled.");
       window.history.replaceState({}, "", window.location.pathname);
     } else {
       setStatus("Ready.");
     }
+
+    renderMembershipBar();
+    refreshSubscriptionStatus();
+
     const searchForm = document.getElementById("searchForm");
     const searchButton = document.getElementById("searchButton") || document.getElementById("searchButton_small");
     const cityInput = document.getElementById("cityInput");

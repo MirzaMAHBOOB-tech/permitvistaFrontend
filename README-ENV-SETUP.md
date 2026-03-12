@@ -3,6 +3,10 @@
 ## Overview
 This frontend uses environment variables to securely store the Google Maps API key. The API key is loaded from a `.env` file locally and from Render environment variables in production.
 
+The project now also uses Stripe for:
+- One-time permit checkout (`$2.99`)
+- Monthly unlimited subscription (`$29.99/month`)
+
 ## Local Development Setup
 
 ### Step 1: Create .env file
@@ -41,6 +45,27 @@ Open `index.html` in your browser or use a local server. The Google Maps API sho
 1. The build command in `render.yaml` will automatically run `node build-config.js`
 2. This will generate `static/config.js` with your API key from Render's environment variables
 3. Your site will deploy with the API key configured
+
+## Backend Stripe Variables (Render)
+
+Add these variables to your **permitvista-backend** Render service:
+
+- `STRIPE_SECRET_KEY`: Stripe secret key (`sk_live_...` or test key)
+- `STRIPE_PUBLISHABLE_KEY`: Stripe publishable key (`pk_live_...` or test key)
+- `STRIPE_WEBHOOK_SECRET`: Stripe webhook signing secret (`whsec_...`)
+- `FRONTEND_URL`: Frontend URL (for Stripe success/cancel redirects)
+- `BACKEND_URL`: Backend URL (used to build callback URLs)
+
+Webhook endpoint to configure in Stripe Dashboard:
+
+- `POST /webhook`
+
+Events to subscribe to:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
 
 ## How It Works
 
