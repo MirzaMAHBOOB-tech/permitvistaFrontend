@@ -327,6 +327,7 @@ window.initAutocomplete = function() {
     isSubscribed: false,
     subscriptionStatus: "none",
     canManageSubscription: false,
+    membershipMessage: "",
   };
 
   function normalizeUnitNumber(raw) {
@@ -950,6 +951,7 @@ window.initAutocomplete = function() {
       <button id="manageSubscriptionBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#1d4ed8;color:#fff;font-weight:600;cursor:pointer;${subscriptionState.canManageSubscription ? "" : "display:none;"}">Manage Subscription</button>
       <span id="memberIdentity" style="font-size:12px;color:#065f46;">${subscriptionState.email ? `Signed in as ${safeText(subscriptionState.email)}` : ""}</span>
       ${badge}
+      <div id="membershipStatusText" style="flex-basis:100%;text-align:center;font-size:12px;color:#065f46;${subscriptionState.membershipMessage ? "" : "display:none;"}">${safeText(subscriptionState.membershipMessage)}</div>
     `;
 
     const emailInput = document.getElementById("memberEmailInput");
@@ -1022,6 +1024,7 @@ window.initAutocomplete = function() {
       subscriptionState.isSubscribed = false;
       subscriptionState.subscriptionStatus = "none";
       subscriptionState.canManageSubscription = false;
+      subscriptionState.membershipMessage = "";
       renderMembershipBar();
       updateResultsDisplay();
       return;
@@ -1036,12 +1039,14 @@ window.initAutocomplete = function() {
       const fallbackMessage = subscriptionState.isSubscribed
         ? "Membership active. Unlimited downloads enabled."
         : "No active membership found for this email. You can subscribe for unlimited access.";
-      setStatus(apiMessage || fallbackMessage, !!data.lookup_degraded);
+      subscriptionState.membershipMessage = apiMessage || fallbackMessage;
+      setStatus(subscriptionState.membershipMessage, !!data.lookup_degraded);
       renderMembershipBar();
       updateResultsDisplay();
     } catch (error) {
       subscriptionState.isSubscribed = false;
       subscriptionState.canManageSubscription = false;
+      subscriptionState.membershipMessage = "Could not verify membership right now. Please try again.";
       setStatus("Could not verify membership right now. Please try again.", true);
       renderMembershipBar();
       updateResultsDisplay();
