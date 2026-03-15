@@ -940,11 +940,13 @@ window.initAutocomplete = function() {
       ? `<span style="background:#065f46;color:#fff;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;">Unlimited Member</span>`
       : "";
 
+    const subscribeBtnStyle = subscriptionState.isSubscribed ? "display:none;" : "";
+
     bar.innerHTML = `
       <div style="font-size:13px;color:#064e3b;font-weight:700;">PermitVista Membership</div>
       <input id="memberEmailInput" type="email" placeholder="Enter email for unlimited access" value="${safeText(subscriptionState.email)}" style="padding:8px 10px;border-radius:8px;border:1px solid #9bd0b3;min-width:260px;" />
       <button id="checkMemberStatusBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#0f766e;color:#fff;font-weight:600;cursor:pointer;">Check Status</button>
-      <button id="subscribeBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#047857;color:#fff;font-weight:700;cursor:pointer;">Subscribe - $29.99/mo</button>
+      <button id="subscribeBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#047857;color:#fff;font-weight:700;cursor:pointer;${subscribeBtnStyle}">Subscribe - $29.99/mo</button>
       <button id="manageSubscriptionBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#1d4ed8;color:#fff;font-weight:600;cursor:pointer;${subscriptionState.canManageSubscription ? "" : "display:none;"}">Manage Subscription</button>
       <span id="memberIdentity" style="font-size:12px;color:#065f46;">${subscriptionState.email ? `Signed in as ${safeText(subscriptionState.email)}` : ""}</span>
       ${badge}
@@ -1022,12 +1024,15 @@ window.initAutocomplete = function() {
       subscriptionState.isSubscribed = !!data.is_subscribed;
       subscriptionState.subscriptionStatus = data.subscription_status || "none";
       subscriptionState.canManageSubscription = !!data.can_manage_subscription;
+      if (subscriptionState.isSubscribed) {
+        setStatus("Membership active. Unlimited downloads enabled.");
+      }
       renderMembershipBar();
       updateResultsDisplay();
     } catch (error) {
       subscriptionState.isSubscribed = false;
       subscriptionState.canManageSubscription = false;
-      setStatus(`Subscription status error: ${error.message}`, true);
+      setStatus("Could not verify membership right now. Please try again.", true);
       renderMembershipBar();
       updateResultsDisplay();
     }
