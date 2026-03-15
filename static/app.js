@@ -981,7 +981,7 @@ window.initAutocomplete = function() {
         checkBtn.textContent = "Checking...";
         setStatus("Checking membership status...");
         try {
-          await refreshSubscriptionStatus();
+          await refreshSubscriptionStatus({ showUserMessage: true });
         } finally {
           checkBtn.disabled = false;
           checkBtn.textContent = "Check Status";
@@ -1018,7 +1018,9 @@ window.initAutocomplete = function() {
     }
   }
 
-  async function refreshSubscriptionStatus() {
+  async function refreshSubscriptionStatus(options = {}) {
+    const showUserMessage = options.showUserMessage !== false;
+
     const email = (subscriptionState.email || "").trim().toLowerCase();
     if (!email || !email.includes("@")) {
       subscriptionState.isSubscribed = false;
@@ -1039,15 +1041,23 @@ window.initAutocomplete = function() {
       const fallbackMessage = subscriptionState.isSubscribed
         ? "Membership active. Unlimited downloads enabled."
         : "No active membership found for this email. You can subscribe for unlimited access.";
-      subscriptionState.membershipMessage = apiMessage || fallbackMessage;
-      setStatus(subscriptionState.membershipMessage, !!data.lookup_degraded);
+      if (showUserMessage) {
+        subscriptionState.membershipMessage = apiMessage || fallbackMessage;
+        setStatus(subscriptionState.membershipMessage, !!data.lookup_degraded);
+      } else {
+        subscriptionState.membershipMessage = "";
+      }
       renderMembershipBar();
       updateResultsDisplay();
     } catch (error) {
       subscriptionState.isSubscribed = false;
       subscriptionState.canManageSubscription = false;
-      subscriptionState.membershipMessage = "Could not verify membership right now. Please try again.";
-      setStatus("Could not verify membership right now. Please try again.", true);
+      if (showUserMessage) {
+        subscriptionState.membershipMessage = "Could not verify membership right now. Please try again.";
+        setStatus("Could not verify membership right now. Please try again.", true);
+      } else {
+        subscriptionState.membershipMessage = "";
+      }
       renderMembershipBar();
       updateResultsDisplay();
     }
@@ -1076,7 +1086,7 @@ window.initAutocomplete = function() {
     }
 
     renderMembershipBar();
-    refreshSubscriptionStatus();
+    refreshSubscriptionStatus({ showUserMessage: false });
 
     const searchForm = document.getElementById("searchForm");
     const searchButton = document.getElementById("searchButton") || document.getElementById("searchButton_small");
