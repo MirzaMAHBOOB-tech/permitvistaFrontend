@@ -975,7 +975,15 @@ window.initAutocomplete = function() {
         }
         subscriptionState.email = email;
         localStorage.setItem("permitvista_member_email", email);
-        await refreshSubscriptionStatus();
+        checkBtn.disabled = true;
+        checkBtn.textContent = "Checking...";
+        setStatus("Checking membership status...");
+        try {
+          await refreshSubscriptionStatus();
+        } finally {
+          checkBtn.disabled = false;
+          checkBtn.textContent = "Check Status";
+        }
       });
     }
 
@@ -1024,9 +1032,11 @@ window.initAutocomplete = function() {
       subscriptionState.isSubscribed = !!data.is_subscribed;
       subscriptionState.subscriptionStatus = data.subscription_status || "none";
       subscriptionState.canManageSubscription = !!data.can_manage_subscription;
-      if (subscriptionState.isSubscribed) {
-        setStatus("Membership active. Unlimited downloads enabled.");
-      }
+      const apiMessage = (data.status_message || "").trim();
+      const fallbackMessage = subscriptionState.isSubscribed
+        ? "Membership active. Unlimited downloads enabled."
+        : "No active membership found for this email. You can subscribe for unlimited access.";
+      setStatus(apiMessage || fallbackMessage, !!data.lookup_degraded);
       renderMembershipBar();
       updateResultsDisplay();
     } catch (error) {
