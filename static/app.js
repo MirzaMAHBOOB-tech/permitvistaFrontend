@@ -329,6 +329,7 @@ window.initAutocomplete = function() {
     canManageSubscription: false,
     membershipMessage: "",
   };
+  let membershipRefreshTimer = null;
 
   function normalizeUnitNumber(raw) {
     return String(raw || "").trim();
@@ -937,55 +938,44 @@ window.initAutocomplete = function() {
       }
     }
 
-    const badge = subscriptionState.isSubscribed
-      ? `<span style="background:#065f46;color:#fff;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700;">Unlimited Member</span>`
-      : "";
-
-    const subscribeBtnStyle = subscriptionState.isSubscribed ? "display:none;" : "";
+    const subscribeOrBadge = subscriptionState.isSubscribed
+      ? `<span id="unlimitedMemberBadge" style="padding:8px 12px;border-radius:999px;background:#065f46;color:#fff;font-weight:700;font-size:12px;">Unlimited Member ✓</span>`
+      : `<button id="subscribeBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#047857;color:#fff;font-weight:700;cursor:pointer;">Subscribe - $29.99/mo</button>`;
 
     bar.innerHTML = `
       <div style="font-size:13px;color:#064e3b;font-weight:700;">PermitVista Membership</div>
       <input id="memberEmailInput" type="email" placeholder="Enter email for unlimited access" value="${safeText(subscriptionState.email)}" style="padding:8px 10px;border-radius:8px;border:1px solid #9bd0b3;min-width:260px;" />
-      <button id="checkMemberStatusBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#0f766e;color:#fff;font-weight:600;cursor:pointer;">Check Status</button>
-      <button id="subscribeBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#047857;color:#fff;font-weight:700;cursor:pointer;${subscribeBtnStyle}">Subscribe - $29.99/mo</button>
+      ${subscribeOrBadge}
       <button id="manageSubscriptionBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#1d4ed8;color:#fff;font-weight:600;cursor:pointer;${subscriptionState.canManageSubscription ? "" : "display:none;"}">Manage Subscription</button>
       <span id="memberIdentity" style="font-size:12px;color:#065f46;">${subscriptionState.email ? `Signed in as ${safeText(subscriptionState.email)}` : ""}</span>
-      ${badge}
       <div id="membershipStatusText" style="flex-basis:100%;text-align:center;font-size:12px;color:#065f46;${subscriptionState.membershipMessage ? "" : "display:none;"}">${safeText(subscriptionState.membershipMessage)}</div>
     `;
 
     const emailInput = document.getElementById("memberEmailInput");
-    const checkBtn = document.getElementById("checkMemberStatusBtn");
     const subscribeBtn = document.getElementById("subscribeBtn");
     const manageBtn = document.getElementById("manageSubscriptionBtn");
 
     if (emailInput) {
-      emailInput.addEventListener("change", () => {
-        subscriptionState.email = emailInput.value.trim().toLowerCase();
-        if (subscriptionState.email) {
-          localStorage.setItem("permitvista_member_email", subscriptionState.email);
+      emailInput.addEventListener("input", () => {
+        const nextEmail = emailInput.value.trim().toLowerCase();
+        subscriptionState.email = nextEmail;
+        if (nextEmail) {
+          localStorage.setItem("permitvista_member_email", nextEmail);
+        } else {
+          localStorage.removeItem("permitvista_member_email");
         }
+        scheduleMembershipStatusRefresh({ delayMs: 600, showUserMessage: false });
       });
-    }
 
-    if (checkBtn) {
-      checkBtn.addEventListener("click", async () => {
-        const email = emailInput ? emailInput.value.trim().toLowerCase() : "";
-        if (!email || !email.includes("@")) {
-          alert("Enter a valid email first.");
-          return;
+      emailInput.addEventListener("change", () => {
+        const nextEmail = emailInput.value.trim().toLowerCase();
+        subscriptionState.email = nextEmail;
+        if (nextEmail) {
+          localStorage.setItem("permitvista_member_email", nextEmail);
+        } else {
+          localStorage.removeItem("permitvista_member_email");
         }
-        subscriptionState.email = email;
-        localStorage.setItem("permitvista_member_email", email);
-        checkBtn.disabled = true;
-        checkBtn.textContent = "Checking...";
-        setStatus("Checking membership status...");
-        try {
-          await refreshSubscriptionStatus({ showUserMessage: true });
-        } finally {
-          checkBtn.disabled = false;
-          checkBtn.textContent = "Check Status";
-        }
+        scheduleMembershipStatusRefresh({ delayMs: 0, showUserMessage: false });
       });
     }
 
@@ -1016,6 +1006,21 @@ window.initAutocomplete = function() {
         }
       });
     }
+  }
+
+  function scheduleMembershipStatusRefresh(options = {}) {
+    const delayMs = Number.isFinite(options.delayMs) ? options.delayMs : 0;
+    const showUserMessage = options.showUserMessage === true;
+
+    if (membershipRefreshTimer) {
+      clearTimeout(membershipRefreshTimer);
+      membershipRefreshTimer = null;
+    }
+
+    membershipRefreshTimer = setTimeout(() => {
+      membershipRefreshTimer = null;
+      refreshSubscriptionStatus({ showUserMessage });
+    }, Math.max(0, delayMs));
   }
 
   async function refreshSubscriptionStatus(options = {}) {
@@ -1079,6 +1084,8 @@ window.initAutocomplete = function() {
       if (successEmail) {
         localStorage.setItem("permitvista_member_email", successEmail);
       }
+      subscriptionState.isSubscribed = true;
+      subscriptionState.subscriptionStatus = "active";
       setStatus("Subscription activated. Unlimited PDFs are now enabled.");
       window.history.replaceState({}, "", window.location.pathname);
     } else {
@@ -1086,7 +1093,7 @@ window.initAutocomplete = function() {
     }
 
     renderMembershipBar();
-    refreshSubscriptionStatus({ showUserMessage: false });
+    scheduleMembershipStatusRefresh({ delayMs: 0, showUserMessage: false });
 
     const searchForm = document.getElementById("searchForm");
     const searchButton = document.getElementById("searchButton") || document.getElementById("searchButton_small");
