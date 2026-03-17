@@ -735,6 +735,12 @@ window.initAutocomplete = function() {
 
   // ---------- Stripe Checkout + Subscription ----------
   async function startOneTimeCheckout(record) {
+    const email = (subscriptionState.email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      alert("Enter your email in the membership bar to buy individual permit PDFs.");
+      return;
+    }
+
     setStatus("Redirecting to Stripe checkout for $2.99...");
     const response = await fetch(`${API_BASE_URL}/create-checkout-session`, {
       method: "POST",
@@ -743,6 +749,7 @@ window.initAutocomplete = function() {
         record_data: record,
         unit_number: activeUnitNumber || "",
         address: record.address || record.Address || "",
+        email: email,
       }),
     });
 
@@ -1077,6 +1084,14 @@ window.initAutocomplete = function() {
     if (urlParams.get("payment") === "cancelled") {
       setStatus("Payment cancelled. You can try again anytime.");
       window.history.replaceState({}, "", window.location.pathname);
+    } else if (urlParams.get("payment") === "success") {
+      if (successEmail) {
+        localStorage.setItem("permitvista_member_email", successEmail);
+      }
+      setStatus("Payment successful! Refreshing your access...");
+      window.history.replaceState({}, "", window.location.pathname);
+      // Schedule refresh of subscription status to confirm paid access
+      scheduleMembershipStatusRefresh({ delayMs: 500, showUserMessage: true });
     } else if (urlParams.get("subscription") === "cancelled") {
       setStatus("Subscription checkout cancelled.");
       window.history.replaceState({}, "", window.location.pathname);
