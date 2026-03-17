@@ -1088,9 +1088,9 @@ window.initAutocomplete = function() {
       if (successEmail) {
         localStorage.setItem("permitvista_member_email", successEmail);
       }
-      setStatus("Payment successful! Refreshing your access...");
+      setStatus("Payment successful for this permit. Subscription is still required for unlimited PDFs.");
       window.history.replaceState({}, "", window.location.pathname);
-      // Schedule refresh of subscription status to confirm paid access
+      // Refresh status so subscription-only access is reflected in the UI
       scheduleMembershipStatusRefresh({ delayMs: 500, showUserMessage: true });
     } else if (urlParams.get("subscription") === "cancelled") {
       setStatus("Subscription checkout cancelled.");
