@@ -1045,8 +1045,13 @@ window.initAutocomplete = function() {
     }
 
     try {
+      const wasSubscribed = !!subscriptionState.isSubscribed;
       const data = await fetchJson(`${API_BASE_URL}/subscription-status?email=${encodeURIComponent(email)}`);
-      subscriptionState.isSubscribed = !!data.is_subscribed;
+      const apiSubscribed = !!data.is_subscribed;
+      const degraded = !!data.lookup_degraded;
+
+      // If verification is degraded, do not immediately remove already-granted local access.
+      subscriptionState.isSubscribed = degraded && wasSubscribed ? true : apiSubscribed;
       subscriptionState.subscriptionStatus = data.subscription_status || "none";
       subscriptionState.canManageSubscription = !!data.can_manage_subscription;
       const apiMessage = (data.status_message || "").trim();
@@ -1055,14 +1060,15 @@ window.initAutocomplete = function() {
         : "No active membership found for this email. You can subscribe for unlimited access.";
       if (showUserMessage) {
         subscriptionState.membershipMessage = apiMessage || fallbackMessage;
-        setStatus(subscriptionState.membershipMessage, !!data.lookup_degraded);
+        setStatus(subscriptionState.membershipMessage, degraded);
       } else {
         subscriptionState.membershipMessage = "";
       }
       renderMembershipBar();
       updateResultsDisplay();
     } catch (error) {
-      subscriptionState.isSubscribed = false;
+      // Keep existing subscribed state on transient errors so paid users are not gated.
+      subscriptionState.isSubscribed = !!subscriptionState.isSubscribed;
       subscriptionState.canManageSubscription = false;
       if (showUserMessage) {
         subscriptionState.membershipMessage = "Could not verify membership right now. Please try again.";
@@ -1089,6 +1095,18 @@ window.initAutocomplete = function() {
         localStorage.setItem("permitvista_member_email", successEmail);
       }
       setStatus("Payment successful for this permit. Subscription is still required for unlimited PDFs.");
+
+      const viewUrlParam = (urlParams.get("view_url") || "").trim();
+      const downloadUrlParam = (urlParams.get("download_url") || "").trim();
+      const candidatePdfUrl = viewUrlParam || downloadUrlParam;
+      if (candidatePdfUrl) {
+        const openedKey = `permitvista_payment_pdf_opened_${candidatePdfUrl}`;
+        if (!sessionStorage.getItem(openedKey)) {
+          sessionStorage.setItem(openedKey, "1");
+          openPdfUrl(candidatePdfUrl);
+        }
+      }
+
       window.history.replaceState({}, "", window.location.pathname);
       // Refresh status so subscription-only access is reflected in the UI
       scheduleMembershipStatusRefresh({ delayMs: 500, showUserMessage: true });
@@ -1101,6 +1119,7 @@ window.initAutocomplete = function() {
       }
       subscriptionState.isSubscribed = true;
       subscriptionState.subscriptionStatus = "active";
+      subscriptionState.membershipMessage = "Subscription activated. Unlimited PDFs are now enabled.";
       setStatus("Subscription activated. Unlimited PDFs are now enabled.");
       window.history.replaceState({}, "", window.location.pathname);
     } else {
@@ -1108,7 +1127,7 @@ window.initAutocomplete = function() {
     }
 
     renderMembershipBar();
-    scheduleMembershipStatusRefresh({ delayMs: 0, showUserMessage: false });
+    scheduleMembershipStatusRefresh({ delayMs: urlParams.get("subscription") === "success" ? 5000 : 0, showUserMessage: false });
 
     const searchForm = document.getElementById("searchForm");
     const searchButton = document.getElementById("searchButton") || document.getElementById("searchButton_small");
